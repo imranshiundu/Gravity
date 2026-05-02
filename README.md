@@ -12,16 +12,16 @@ Everything in this repo is part of Gravity.
 
 We are not treating the imported projects as optional references anymore. They are now Gravity modules, each contributing real capabilities to the final system:
 
-- `grav-ui-ash` for dashboard and workspace UI
-- `grav-chat-astrbot` for multi-platform chat and plugin patterns
-- `grav-dev-openhands`, `grav-dev-aider`, and `grav-dev-claw` for coding workflows
-- `grav-core-claude-src` for assistant UX and terminal-agent patterns
-- `grav-agents-openai-sdk` for orchestration patterns
-- `grav-runtime-ollama` for local model runtime
-- `grav-memory-mempalace` for long-term memory
-- `grav-voice-vibevoice`, `grav-voice-realtime-agents`, and `grav-voice-realtime-console` for speech and realtime interaction
-- `grav-gateway-locci` for proxy and gateway behavior
-- `grav-security-odk` for defensive security capabilities
+- `grav-core` for assistant UX, terminal-agent behavior, and system foundations
+- `grav-ollama` for the local AI brain
+- `grav-memory` for long-term memory and retrieval
+- `grav-coding-openhands`, `grav-coding-aider`, and `grav-coding-claw` for coding workflows
+- `grav-defense` for defensive security capabilities
+- `grav-gateway` for proxy and gateway behavior
+- `grav-ui` for the primary and only Gravity interface
+- `grav-channels` for multi-platform channels and plugins
+- `grav-voice-vibevoice`, `grav-voice-realtime-agents`, and `grav-voice-console` for speech and realtime interaction
+- `grav-orchestration` for agent orchestration patterns
 
 ## Current layout
 
@@ -62,7 +62,7 @@ Gravity should feel like one operating layer with one assistant identity:
 
 ## Current interface rule
 
-- `modules/grav-ui-ash` is the only primary interface
+- `modules/grav-ui` is the only primary interface
 - Ollama is connected as an external engine through `OLLAMA_BASE_URL`
 - AstrBot dashboard startup is disabled by default inside Gravity
 

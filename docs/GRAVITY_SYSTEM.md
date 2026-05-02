@@ -17,20 +17,20 @@ We are not shrinking the workspace into a single-language app first. We are buil
 ```text
 Gravity/
 ├── modules/
-│   ├── grav-ui-ash
-│   ├── grav-chat-astrbot
-│   ├── grav-dev-openhands
-│   ├── grav-dev-aider
-│   ├── grav-dev-claw
-│   ├── grav-core-claude-src
-│   ├── grav-agents-openai-sdk
-│   ├── grav-runtime-ollama
-│   ├── grav-memory-mempalace
+│   ├── grav-core
+│   ├── grav-ollama
+│   ├── grav-memory
+│   ├── grav-coding-openhands
+│   ├── grav-coding-aider
+│   ├── grav-coding-claw
+│   ├── grav-defense
+│   ├── grav-gateway
+│   ├── grav-ui
+│   ├── grav-channels
 │   ├── grav-voice-vibevoice
 │   ├── grav-voice-realtime-agents
-│   ├── grav-voice-realtime-console
-│   ├── grav-gateway-locci
-│   └── grav-security-odk
+│   ├── grav-voice-console
+│   └── grav-orchestration
 ├── apps/
 ├── services/
 ├── packages/
@@ -47,7 +47,7 @@ The user-facing workspace for chat, tools, sessions, mode-switching, memory brow
 
 Primary sources:
 
-- `modules/grav-ui-ash`
+- `modules/grav-ui`
 
 Rule:
 
@@ -61,8 +61,8 @@ The Gravity brain that brokers requests across models, tools, memory, and runtim
 
 Primary sources:
 
-- `modules/grav-core-claude-src`
-- `modules/grav-agents-openai-sdk`
+- `modules/grav-core`
+- `modules/grav-orchestration`
 - patterns from coding-agent modules
 
 ### 3. Capability fabric
@@ -126,3 +126,21 @@ Reason:
 ## Next technical step
 
 Create a small `packages/grav-contracts` package plus a `services/grav-core` wrapper so every module can start registering tools, models, actions, and UI surfaces into one shared Gravity contract.
+
+## Capability naming
+
+Gravity now names modules by system role first:
+
+- Core
+- Ollama
+- Memory
+- Coding
+- Defense
+- Gateway
+- UI
+- Channels
+- Voice
+- Business Operator
+- Orchestration
+
+`Business Operator` is currently a planned Gravity-owned layer rather than an imported upstream module.

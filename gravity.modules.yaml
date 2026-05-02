@@ -4,54 +4,8 @@ system:
   mode: unified-monorepo
 
 modules:
-  - id: grav-ui-ash
-    path: modules/grav-ui-ash
-    language: typescript
-    status: active
-    interface_role: primary
-    capabilities:
-      - ui
-      - dashboard
-      - workspace
-
-  - id: grav-chat-astrbot
-    path: modules/grav-chat-astrbot
-    language: python
-    status: active
-    interface_role: backend-only
-    capabilities:
-      - chat
-      - plugins
-      - multi-platform
-
-  - id: grav-dev-openhands
-    path: modules/grav-dev-openhands
-    language: python
-    status: active
-    capabilities:
-      - coding
-      - agent-execution
-      - software-tasks
-
-  - id: grav-dev-aider
-    path: modules/grav-dev-aider
-    language: python
-    status: active
-    capabilities:
-      - coding
-      - cli
-      - repository-editing
-
-  - id: grav-dev-claw
-    path: modules/grav-dev-claw
-    language: rust
-    status: active
-    capabilities:
-      - coding
-      - agent-patterns
-
-  - id: grav-core-claude-src
-    path: modules/grav-core-claude-src
+  - id: grav-core
+    path: modules/grav-core
     language: typescript
     status: active
     capabilities:
@@ -60,17 +14,8 @@ modules:
       - sessions
       - tools
 
-  - id: grav-agents-openai-sdk
-    path: modules/grav-agents-openai-sdk
-    language: typescript
-    status: active
-    capabilities:
-      - orchestration
-      - agents
-      - workflows
-
-  - id: grav-runtime-ollama
-    path: modules/grav-runtime-ollama
+  - id: grav-ollama
+    path: modules/grav-ollama
     language: go
     status: active
     interface_role: engine-only
@@ -79,14 +24,87 @@ modules:
       - inference
       - serving
 
-  - id: grav-memory-mempalace
-    path: modules/grav-memory-mempalace
+  - id: grav-memory
+    path: modules/grav-memory
     language: python
     status: active
     capabilities:
       - memory
       - retrieval
       - indexing
+
+  - id: grav-coding-openhands
+    path: modules/grav-coding-openhands
+    language: python
+    status: active
+    capabilities:
+      - coding
+      - agent-execution
+      - software-tasks
+
+  - id: grav-coding-aider
+    path: modules/grav-coding-aider
+    language: python
+    status: active
+    capabilities:
+      - coding
+      - cli
+      - repository-editing
+
+  - id: grav-coding-claw
+    path: modules/grav-coding-claw
+    language: rust
+    status: active
+    capabilities:
+      - coding
+      - agent-patterns
+
+  - id: grav-defense
+    path: modules/grav-defense
+    language: python
+    status: active
+    capabilities:
+      - defensive-security
+      - audit
+      - system-tooling
+
+  - id: grav-gateway
+    path: modules/grav-gateway
+    language: rust
+    status: active
+    capabilities:
+      - gateway
+      - proxy
+      - traffic-control
+
+  - id: grav-ui
+    path: modules/grav-ui
+    language: typescript
+    status: active
+    interface_role: primary
+    capabilities:
+      - ui
+      - dashboard
+      - workspace
+
+  - id: grav-channels
+    path: modules/grav-channels
+    language: python
+    status: active
+    interface_role: backend-only
+    capabilities:
+      - chat
+      - plugins
+      - multi-platform
+
+  - id: grav-orchestration
+    path: modules/grav-orchestration
+    language: typescript
+    status: active
+    capabilities:
+      - orchestration
+      - agents
+      - workflows
 
   - id: grav-voice-vibevoice
     path: modules/grav-voice-vibevoice
@@ -106,8 +124,8 @@ modules:
       - streaming-voice
       - voice-agents
 
-  - id: grav-voice-realtime-console
-    path: modules/grav-voice-realtime-console
+  - id: grav-voice-console
+    path: modules/grav-voice-console
     language: javascript
     status: active
     capabilities:
@@ -115,20 +133,10 @@ modules:
       - realtime-console
       - voice-ui
 
-  - id: grav-gateway-locci
-    path: modules/grav-gateway-locci
-    language: rust
-    status: active
+planned_modules:
+  - id: grav-business-operator
+    status: planned
     capabilities:
-      - gateway
-      - proxy
-      - traffic-control
-
-  - id: grav-security-odk
-    path: modules/grav-security-odk
-    language: python
-    status: active
-    capabilities:
-      - defensive-security
-      - audit
-      - system-tooling
+      - business-workflows
+      - connectors
+      - operator-automation

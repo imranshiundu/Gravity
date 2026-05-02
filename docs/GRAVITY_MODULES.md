@@ -4,20 +4,26 @@
 
 | Module | Source focus | Main Gravity role |
 | --- | --- | --- |
-| `grav-ui-ash` | Next.js dashboard UI | Primary and only Gravity shell UI |
-| `grav-chat-astrbot` | Multi-platform chatbot framework | Chat backend, plugins, and conversation patterns |
-| `grav-dev-openhands` | AI software development platform | Deep coding workflows |
-| `grav-dev-aider` | Terminal pair-programming tool | Repo editing and CLI coding flows |
-| `grav-dev-claw` | Coding-agent implementation | Additional coding-agent patterns |
-| `grav-core-claude-src` | Assistant source snapshot | Agent UX, CLI, session, tool patterns |
-| `grav-agents-openai-sdk` | Multi-agent SDK | Agent orchestration patterns |
-| `grav-runtime-ollama` | Open-model runtime | Local inference and model serving via external engine bridge |
-| `grav-memory-mempalace` | AI memory system | Long-term memory and retrieval |
+| `grav-core` | Assistant source snapshot | Core Gravity behavior, terminal UX, sessions, and tool patterns |
+| `grav-ollama` | Open-model runtime | Local AI brain and model serving via external engine bridge |
+| `grav-memory` | AI memory system | Long-term memory and retrieval |
+| `grav-coding-openhands` | AI software development platform | Deep coding workflows |
+| `grav-coding-aider` | Terminal pair-programming tool | Repo editing and CLI coding flows |
+| `grav-coding-claw` | Coding-agent implementation | Additional coding-agent patterns |
+| `grav-defense` | Defense-first toolkit | Security workflows and audit tooling |
+| `grav-gateway` | Reverse proxy/API gateway | Traffic control and service routing |
+| `grav-ui` | Next.js dashboard UI | Primary and only Gravity shell UI |
+| `grav-channels` | Multi-platform chatbot framework | Channels, plugins, and conversation patterns |
 | `grav-voice-vibevoice` | Voice AI stack | Speech generation and recognition |
 | `grav-voice-realtime-agents` | Realtime voice demo | Streaming agent conversation patterns |
-| `grav-voice-realtime-console` | Realtime console demo | Voice console and WebRTC patterns |
-| `grav-gateway-locci` | Reverse proxy/API gateway | Traffic control and service routing |
-| `grav-security-odk` | Defense-first toolkit | Security workflows and audit tooling |
+| `grav-voice-console` | Realtime console demo | Voice console and WebRTC patterns |
+| `grav-orchestration` | Multi-agent SDK | Agent orchestration patterns |
+
+## Planned Gravity-owned layer
+
+| Module | Status | Role |
+| --- | --- | --- |
+| `grav-business-operator` | planned | Business workflows, operator automation, and future connector-heavy execution |
 
 ## Integration intent
 
@@ -33,8 +39,8 @@ Each module should eventually expose some combination of:
 
 ## Immediate fusion opportunities
 
-- keep `grav-ui-ash` as the sole live interface and bridge other modules into it
-- combine `grav-core-claude-src`, `grav-agents-openai-sdk`, and coding-agent modules into one Grav execution layer
-- connect `grav-runtime-ollama` and `grav-memory-mempalace` behind Gravity-owned service adapters
+- keep `grav-ui` as the sole live interface and bridge other modules into it
+- combine `grav-core`, `grav-orchestration`, and coding-agent modules into one Grav execution layer
+- connect `grav-ollama` and `grav-memory` behind Gravity-owned service adapters
 - combine the three voice modules into one Gravity voice stack
-- expose `grav-gateway-locci` and `grav-security-odk` as operator modules inside the same system
+- expose `grav-gateway` and `grav-defense` as operator modules inside the same system
