@@ -1,6 +1,14 @@
 # Gravity monorepo
 .DS_Store
 Thumbs.db
+.idea/
+.vscode/
+.agent/
+.codex/
+.opencode/
+.kilocode/
+.worktrees/
+.claude/
 
 # Python
 __pycache__/
@@ -10,11 +18,23 @@ __pycache__/
 .ruff_cache/
 .venv/
 venv/
+*.egg-info/
+.coverage
+.coverage.*
+htmlcov/
+uv.lock
+.python-version
 
 # Node
 node_modules/
 .next/
 coverage/
+dist/
+out/
+build/
+*.tsbuildinfo
+next-env.d.ts
+.pnpm-debug.log*
 
 # Go / Rust / misc build outputs
 target/
@@ -28,3 +48,25 @@ tmp/
 
 # Logs
 *.log
+
+# Gravity runtime artifacts
+modules/channels/.astrbot
+modules/channels/astrbot.lock
+modules/channels/botpy.log
+modules/channels/logs/
+modules/channels/temp/
+modules/channels/cookies.json
+modules/channels/data/
+modules/channels/data_v2.db
+modules/channels/data_v3.db
+modules/channels/configs/config.yaml
+modules/channels/configs/session/
+modules/channels/cmd_config.json
+modules/channels/dashboard/dist/
+modules/channels/dashboard/node_modules/
+modules/channels/chroma/
+modules/channels/CharacterModels/
+modules/channels/GenieData/
+modules/ollama/llama/build/
+modules/ollama/llama/vendor/
+modules/ollama/integration/testdata/models/

@@ -96,8 +96,8 @@ modules:
       - agents
       - workflows
 
-  - id: voice-vibevoice
-    path: modules/voice-vibevoice
+  - id: voice
+    path: modules/voice
     language: python
     status: active
     capabilities:

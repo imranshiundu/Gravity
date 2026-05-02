@@ -21,7 +21,7 @@ Backend modules:
 - `defense` for defensive security capabilities
 - `gateway` for proxy and gateway behavior
 - `channels` for multi-platform channels and plugins
-- `voice-vibevoice` for speech and realtime model capability
+- `voice` for speech and realtime model capability
 - `orchestration` for agent orchestration patterns
 
 Apps:
@@ -102,6 +102,9 @@ Imported repos should not bypass Gravity Core. If a module can do something usef
 - [Gravity Core](docs/GRAVITY_CORE.md)
 - [Gravity Contracts](docs/GRAVITY_CONTRACTS.md)
 - [Gravity Endpoints](docs/GRAVITY_ENDPOINTS.md)
+- [System Surfaces](docs/architecture/SYSTEM_SURFACES.md)
+- [CLI Stack](docs/architecture/CLI_STACK.md)
+- [Voice Stack](docs/architecture/VOICE_STACK.md)
 - [Gravity Safety Policy](docs/GRAVITY_SAFETY_POLICY.md)
 - [Gravity Roadmap](docs/GRAVITY_ROADMAP.md)
 - [Gravity Blueprints](docs/blueprints/README.md)
@@ -111,7 +114,9 @@ Imported repos should not bypass Gravity Core. If a module can do something usef
 
 The blueprint docs in `docs/blueprints/` are the Gravity-level source of truth.
 
-Module-level READMEs remain useful as upstream reference material for setup, license, and source-specific details. They should not be deleted until their critical information has been safely migrated into Gravity-level docs.
+Module and app root READMEs have been moved out of imported surfaces and into `docs/modules/*` and `docs/apps/*`.
+
+Gravity-owned summaries live in `README.md` files there, and preserved upstream reference material lives in `UPSTREAM_README.md` when we still need it.
 
 ## Immediate build direction
 

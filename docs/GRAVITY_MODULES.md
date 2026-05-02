@@ -13,7 +13,7 @@
 | `defense` | Defense-first toolkit | Security workflows and audit tooling |
 | `gateway` | Reverse proxy/API gateway | Traffic control and service routing |
 | `channels` | Multi-platform chatbot framework | Channels, plugins, and conversation patterns |
-| `voice-vibevoice` | Voice AI stack | Speech generation and recognition |
+| `voice` | Voice AI stack | Speech generation and recognition |
 | `orchestration` | Multi-agent SDK | Agent orchestration patterns |
 
 ## Active app map
@@ -55,5 +55,5 @@ Each module should eventually expose some combination of:
 - keep `apps/web` as the sole live interface and bridge other modules into it
 - combine `core`, `orchestration`, and coding-agent modules into one Grav execution layer
 - connect `ollama` and `memory` behind Gravity-owned service adapters
-- combine `voice-vibevoice` with the voice apps into one Gravity voice stack
+- combine `voice` with the voice apps into one Gravity voice stack
 - expose `gateway` and `defense` as operator modules inside the same system

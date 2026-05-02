@@ -26,7 +26,7 @@ Gravity/
 │   ├── defense
 │   ├── gateway
 │   ├── channels
-│   ├── voice-vibevoice
+│   ├── voice
 │   └── orchestration
 ├── apps/
 │   ├── web

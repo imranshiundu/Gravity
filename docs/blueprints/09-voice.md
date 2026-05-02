@@ -11,7 +11,7 @@ It should support personal voice control, coding help, business receptionist flo
 ## Source surfaces
 
 ```text
-modules/voice-vibevoice
+modules/voice
 apps/voice-realtime-agents
 apps/voice-console
 ```

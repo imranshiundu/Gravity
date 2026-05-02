@@ -205,7 +205,7 @@ Goal: give Grav speech and live interaction.
 
 Source modules:
 
-- voice-vibevoice
+- voice
 - apps/voice-realtime-agents
 - apps/voice-console
 

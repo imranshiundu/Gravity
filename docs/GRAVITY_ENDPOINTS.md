@@ -1,6 +1,6 @@
 # Gravity Endpoints
 
-Gravity should converge on one UI and one endpoint contract.
+Gravity should converge on one owned endpoint contract across web, CLI, and voice.
 
 ## Current live path
 
@@ -22,9 +22,11 @@ The old engine-specific routes still exist for runtime inspection:
 ## Interface rule
 
 - `apps/web` is the main Gravity interface
+- the Gravity CLI is a first-class operator interface
+- voice apps are secondary interfaces that still depend on Gravity-owned backend contracts
 - backend modules should not own the primary user experience
 - embedded dashboards inside modules are reference sources only
-- all module features should be exposed to the UI through Gravity-owned endpoints
+- all module features should be exposed through Gravity-owned endpoints
 
 ## Endpoint shape
 
@@ -35,8 +37,10 @@ The old engine-specific routes still exist for runtime inspection:
 /api/memory/*      -> memory save/search/forget
 /api/coding/*      -> coding actions and repo tools
 /api/defense/*     -> security scans and reports
+/api/gateway/*     -> routing and gateway controls
 /api/channels/*    -> channel state, plugins, inbox, and delivery
 /api/voice/*       -> realtime voice sessions and transcripts
+/api/business/*    -> future business operator flows
 ```
 
 ## UI fusion plan
@@ -60,7 +64,15 @@ The old engine-specific routes still exist for runtime inspection:
   - `apps/voice-console`
   - `apps/voice-realtime-agents`
 - role: prototype voice surfaces
-- migration target: either embed selected features into `apps/web` or make them secondary apps that still talk to Gravity endpoints
+- migration target: keep them as secondary surfaces or absorb their best flows into `apps/web`, but always route through Gravity endpoints
+
+### CLI
+
+- source foundation:
+  - `modules/core/cli`
+  - `modules/core/commands`
+- role: operator and coding interface
+- integration rule: the CLI should call the same Gravity capability contracts that power web and voice
 
 ### Other embedded UIs
 
@@ -87,4 +99,5 @@ Right now:
 1. Move more UI fetches in `apps/web` behind Gravity assistant and service routes instead of engine-specific routes.
 2. Add `channels` status and action endpoints so AstrBot capabilities enter Gravity through one shell.
 3. Add a `voice` session endpoint layer so the voice apps stop being isolated demos.
-4. Build `services/grav-core` so `apps/web` talks to Gravity Core first, and Gravity Core decides which backend module to use.
+4. Define CLI-facing command contracts that map cleanly onto the same backend services.
+5. Build `services/grav-core` so `apps/web`, CLI, and voice talk to Gravity Core first, and Gravity Core decides which backend module to use.
