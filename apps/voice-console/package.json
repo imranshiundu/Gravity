@@ -1,4 +1,5 @@
 {
+  "name": "gravity-voice-console",
   "type": "module",
   "scripts": {
     "dev": "nodemon server.js --dev",

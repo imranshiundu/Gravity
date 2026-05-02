@@ -36,7 +36,7 @@ services/business-service/
 UI:
 
 ```text
-apps/web-dashboard/business/
+apps/web/business/
 ```
 
 Contracts:

@@ -8,12 +8,12 @@ It should support personal voice control, coding help, business receptionist flo
 
 **Gravity Voice is the speech and realtime interaction layer that lets Grav listen, speak, remember sessions, and run approved workflows through voice.**
 
-## Source modules
+## Source surfaces
 
 ```text
 modules/voice-vibevoice
-modules/voice-realtime-agents
-modules/voice-console
+apps/voice-realtime-agents
+apps/voice-console
 ```
 
 ## Where it should live

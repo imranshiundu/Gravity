@@ -25,13 +25,13 @@ Gravity/
 │   ├── coding-claw
 │   ├── defense
 │   ├── gateway
-│   ├── ui
 │   ├── channels
 │   ├── voice-vibevoice
-│   ├── voice-realtime-agents
-│   ├── voice-console
 │   └── orchestration
 ├── apps/
+│   ├── web
+│   ├── voice-console
+│   └── voice-realtime-agents
 ├── services/
 ├── packages/
 └── data/
@@ -45,9 +45,15 @@ Gravity should converge toward four unified layers:
 
 The user-facing workspace for chat, tools, sessions, mode-switching, memory browsing, approvals, and administration.
 
-Primary sources:
+Primary source:
 
-- `modules/ui`
+- `apps/web`
+
+Reference UI sources to absorb through endpoints:
+
+- `modules/channels/dashboard`
+- `apps/voice-console`
+- `apps/voice-realtime-agents`
 
 Rule:
 

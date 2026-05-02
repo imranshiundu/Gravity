@@ -77,16 +77,6 @@ modules:
       - proxy
       - traffic-control
 
-  - id: ui
-    path: modules/ui
-    language: typescript
-    status: active
-    interface_role: primary
-    capabilities:
-      - ui
-      - dashboard
-      - workspace
-
   - id: channels
     path: modules/channels
     language: python
@@ -115,23 +105,58 @@ modules:
       - text-to-speech
       - voice-ai
 
-  - id: voice-realtime-agents
-    path: modules/voice-realtime-agents
+apps:
+  - id: web
+    path: apps/web
     language: typescript
     status: active
+    interface_role: primary
+    capabilities:
+      - ui
+      - dashboard
+      - workspace
+      - assistant-surface
+
+  - id: voice-console
+    path: apps/voice-console
+    language: javascript
+    status: active
+    interface_role: secondary
+    capabilities:
+      - webrtc
+      - realtime-console
+      - voice-ui
+
+  - id: voice-realtime-agents
+    path: apps/voice-realtime-agents
+    language: typescript
+    status: active
+    interface_role: secondary
     capabilities:
       - realtime
       - streaming-voice
       - voice-agents
 
-  - id: voice-console
-    path: modules/voice-console
-    language: javascript
-    status: active
-    capabilities:
-      - webrtc
-      - realtime-console
-      - voice-ui
+embedded_ui_sources:
+  - source: modules/channels/dashboard
+    integration_target: apps/web
+    role: channels-admin-reference
+
+  - source: modules/coding-openhands/frontend
+    integration_target: apps/web
+    role: coding-workflow-reference
+
+  - source: modules/coding-openhands/openhands-ui
+    integration_target: apps/web
+    role: coding-workflow-reference
+
+  - source: modules/defense/odk-web/frontend
+    integration_target: apps/web
+    role: defense-workflow-reference
+
+  - source: modules/ollama/app/ui
+    integration_target: apps/web
+    role: engine-diagnostic-reference
 
 planned_modules:
   - id: business-operator

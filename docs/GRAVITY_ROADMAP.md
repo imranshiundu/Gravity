@@ -157,7 +157,7 @@ Goal: create the main Gravity user experience.
 
 Source modules:
 
-- ui
+- apps/web
 - channels/dashboard
 - realtime console patterns later
 
@@ -206,8 +206,8 @@ Goal: give Grav speech and live interaction.
 Source modules:
 
 - voice-vibevoice
-- voice-realtime-agents
-- voice-console
+- apps/voice-realtime-agents
+- apps/voice-console
 
 Deliverables:
 

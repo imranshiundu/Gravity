@@ -10,7 +10,9 @@ This repository is being shaped into one unified AI operating system that combin
 
 Everything in this repo is part of Gravity.
 
-We are not treating the imported projects as optional references anymore. They are now Gravity modules, each contributing real capabilities to the final system:
+We are not treating the imported projects as optional references anymore. They are now Gravity building blocks with a clear split between backend modules and interface apps.
+
+Backend modules:
 
 - `core` for assistant UX, terminal-agent behavior, and system foundations
 - `ollama` for the local AI brain
@@ -18,10 +20,15 @@ We are not treating the imported projects as optional references anymore. They a
 - `coding-openhands`, `coding-aider`, and `coding-claw` for coding workflows
 - `defense` for defensive security capabilities
 - `gateway` for proxy and gateway behavior
-- `ui` for the primary and only Gravity interface
 - `channels` for multi-platform channels and plugins
-- `voice-vibevoice`, `voice-realtime-agents`, and `voice-console` for speech and realtime interaction
+- `voice-vibevoice` for speech and realtime model capability
 - `orchestration` for agent orchestration patterns
+
+Apps:
+
+- `apps/web` for the primary and only Gravity interface
+- `apps/voice-console` for voice testing and console experiments
+- `apps/voice-realtime-agents` for realtime voice prototypes
 
 ## Build sequence
 
@@ -94,6 +101,7 @@ Imported repos should not bypass Gravity Core. If a module can do something usef
 - [Gravity Modules](docs/GRAVITY_MODULES.md)
 - [Gravity Core](docs/GRAVITY_CORE.md)
 - [Gravity Contracts](docs/GRAVITY_CONTRACTS.md)
+- [Gravity Endpoints](docs/GRAVITY_ENDPOINTS.md)
 - [Gravity Safety Policy](docs/GRAVITY_SAFETY_POLICY.md)
 - [Gravity Roadmap](docs/GRAVITY_ROADMAP.md)
 - [Gravity Blueprints](docs/blueprints/README.md)
@@ -118,7 +126,7 @@ Module-level READMEs remain useful as upstream reference material for setup, lic
 
 ## Current interface rule
 
-- `modules/ui` is the only primary interface
+- `apps/web` is the only primary interface
 - Ollama is connected as an external engine through `OLLAMA_BASE_URL`
 - AstrBot dashboard startup is disabled by default inside Gravity
 

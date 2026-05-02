@@ -28,6 +28,7 @@ import {
   SelectValue,
 } from "@/components/ui/select"
 import { Textarea } from "@/components/ui/textarea"
+import { gravityEndpoints } from "@/lib/gravity-endpoints"
 
 type OllamaModel = {
   name: string
@@ -35,12 +36,17 @@ type OllamaModel = {
   modified_at?: string
 }
 
-type OllamaStatus = {
-  available: boolean
-  baseUrl: string
-  defaultModel: string | null
-  models: OllamaModel[]
-  error?: string
+type AssistantStatus = {
+  assistant: string
+  interface: string
+  primaryRuntime: string
+  ollama: {
+    available: boolean
+    baseUrl: string
+    defaultModel: string | null
+    models: OllamaModel[]
+    error?: string
+  }
 }
 
 type Message = {
@@ -63,7 +69,7 @@ function formatBytes(bytes?: number) {
 }
 
 export function AssistantWorkbench() {
-  const [status, setStatus] = React.useState<OllamaStatus | null>(null)
+  const [status, setStatus] = React.useState<AssistantStatus | null>(null)
   const [prompt, setPrompt] = React.useState("")
   const [messages, setMessages] = React.useState<Message[]>([])
   const [selectedModel, setSelectedModel] = React.useState("")
@@ -75,22 +81,22 @@ export function AssistantWorkbench() {
     setIsRefreshing(true)
 
     try {
-      const response = await fetch("/api/ollama/status", {
+      const response = await fetch(gravityEndpoints.assistant.status, {
         cache: "no-store",
       })
-      const payload = (await response.json()) as OllamaStatus
+      const payload = (await response.json()) as AssistantStatus
       setStatus(payload)
 
       setSelectedModel((currentModel) => {
         if (currentModel) return currentModel
-        return payload.defaultModel ?? payload.models[0]?.name ?? ""
+        return payload.ollama.defaultModel ?? payload.ollama.models[0]?.name ?? ""
       })
     } catch (loadError) {
       setStatus(null)
       setError(
         loadError instanceof Error
           ? loadError.message
-          : "Unable to load Ollama status."
+          : "Unable to load Gravity assistant status."
       )
     } finally {
       setIsRefreshing(false)
@@ -115,7 +121,7 @@ export function AssistantWorkbench() {
     setError(null)
 
     try {
-      const response = await fetch("/api/ollama/chat", {
+      const response = await fetch(gravityEndpoints.assistant.chat, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -155,7 +161,7 @@ export function AssistantWorkbench() {
     }
   }
 
-  const connected = Boolean(status?.available)
+  const connected = Boolean(status?.ollama.available)
 
   return (
     <div className="grid gap-6 xl:grid-cols-[minmax(0,1.7fr)_minmax(320px,0.9fr)]">
@@ -179,7 +185,7 @@ export function AssistantWorkbench() {
               <Select
                 value={selectedModel}
                 onValueChange={(value) => setSelectedModel(value ?? "")}
-                disabled={!connected || status?.models.length === 0}
+                disabled={!connected || status?.ollama.models.length === 0}
               >
                 <SelectTrigger className="w-full justify-between rounded-4xl">
                   <SelectValue>
@@ -188,7 +194,7 @@ export function AssistantWorkbench() {
                 </SelectTrigger>
                 <SelectContent align="start" className="min-w-72">
                   <SelectGroup>
-                    {(status?.models ?? []).map((model) => (
+                    {(status?.ollama.models ?? []).map((model) => (
                       <SelectItem key={model.name} value={model.name}>
                         {model.name}
                       </SelectItem>
@@ -232,9 +238,9 @@ export function AssistantWorkbench() {
             <div className="scrollbar-hidden flex max-h-[26rem] min-h-56 flex-col gap-3 overflow-y-auto pr-1">
               {messages.length === 0 ? (
                 <div className="rounded-4xl border border-dashed border-border/80 bg-muted/40 p-4 text-sm text-muted-foreground">
-                  Ask Grav anything once Ollama is reachable. Gravity will send
-                  the request through its own interface instead of using
-                  Ollama’s built-in app UI.
+                  Ask Grav anything once Ollama is reachable. Gravity now sends
+                  the request through a unified assistant endpoint instead of
+                  talking to the engine route directly from the UI.
                 </div>
               ) : (
                 messages.map((message, index) => (
@@ -265,7 +271,7 @@ export function AssistantWorkbench() {
             />
             <div className="flex items-center justify-between gap-3">
               <div className="text-xs text-muted-foreground">
-                Gravity runtime bridge: `{status?.baseUrl ?? "http://127.0.0.1:11434"}`
+                Assistant endpoint: `{gravityEndpoints.assistant.chat}`
               </div>
               <Button
                 onClick={handleSend}
@@ -292,26 +298,29 @@ export function AssistantWorkbench() {
       <div className="grid gap-6">
         <Card size="sm" className="border border-border/70 bg-card/85">
           <CardHeader>
-            <CardTitle>Engine status</CardTitle>
+            <CardTitle>Bridge status</CardTitle>
             <CardDescription>
-              Gravity does not ship its own Ollama app surface here. It only
-              connects to an existing runtime.
+              Gravity owns the interface. Engines stay behind Gravity endpoints.
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-3 text-sm">
             <div className="flex items-center justify-between gap-4">
-              <span className="text-muted-foreground">Connection</span>
+              <span className="text-muted-foreground">Assistant</span>
+              <Badge variant="outline">{status?.assistant ?? "Grav"}</Badge>
+            </div>
+            <div className="flex items-center justify-between gap-4">
+              <span className="text-muted-foreground">Interface</span>
+              <span>{status?.interface ?? "Gravity Web"}</span>
+            </div>
+            <div className="flex items-center justify-between gap-4">
+              <span className="text-muted-foreground">Runtime</span>
               <Badge variant={connected ? "secondary" : "outline"}>
-                {connected ? "Online" : "Offline"}
+                {status?.primaryRuntime ?? "ollama"}
               </Badge>
             </div>
             <div className="flex items-center justify-between gap-4">
               <span className="text-muted-foreground">Endpoint</span>
-              <span className="font-mono text-xs">{status?.baseUrl ?? "-"}</span>
-            </div>
-            <div className="flex items-center justify-between gap-4">
-              <span className="text-muted-foreground">Models visible</span>
-              <span>{status?.models.length ?? 0}</span>
+              <span className="font-mono text-xs">{status?.ollama.baseUrl ?? "-"}</span>
             </div>
           </CardContent>
         </Card>
@@ -324,12 +333,12 @@ export function AssistantWorkbench() {
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-3">
-            {(status?.models.length ?? 0) === 0 ? (
+            {(status?.ollama.models.length ?? 0) === 0 ? (
               <div className="rounded-3xl border border-dashed border-border/70 bg-muted/40 px-4 py-3 text-sm text-muted-foreground">
                 No models were discovered yet.
               </div>
             ) : (
-              status?.models.slice(0, 8).map((model) => (
+              status?.ollama.models.slice(0, 8).map((model) => (
                 <div
                   key={model.name}
                   className="rounded-3xl border border-border/70 bg-background/70 px-4 py-3"

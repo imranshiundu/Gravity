@@ -12,12 +12,25 @@
 | `coding-claw` | Coding-agent implementation | Additional coding-agent patterns |
 | `defense` | Defense-first toolkit | Security workflows and audit tooling |
 | `gateway` | Reverse proxy/API gateway | Traffic control and service routing |
-| `ui` | Next.js dashboard UI | Primary and only Gravity shell UI |
 | `channels` | Multi-platform chatbot framework | Channels, plugins, and conversation patterns |
 | `voice-vibevoice` | Voice AI stack | Speech generation and recognition |
-| `voice-realtime-agents` | Realtime voice demo | Streaming agent conversation patterns |
-| `voice-console` | Realtime console demo | Voice console and WebRTC patterns |
 | `orchestration` | Multi-agent SDK | Agent orchestration patterns |
+
+## Active app map
+
+| App | Source focus | Main Gravity role |
+| --- | --- | --- |
+| `apps/web` | Ash-derived Next.js app | Primary and only Gravity shell UI |
+| `apps/voice-console` | Realtime console app | Voice testing surface |
+| `apps/voice-realtime-agents` | Realtime agent app | Voice prototype surface |
+
+## Embedded UI sources to absorb
+
+- `modules/channels/dashboard`
+- `modules/coding-openhands/frontend`
+- `modules/coding-openhands/openhands-ui`
+- `modules/defense/odk-web/frontend`
+- `modules/ollama/app/ui`
 
 ## Planned Gravity-owned layer
 
@@ -39,8 +52,8 @@ Each module should eventually expose some combination of:
 
 ## Immediate fusion opportunities
 
-- keep `ui` as the sole live interface and bridge other modules into it
+- keep `apps/web` as the sole live interface and bridge other modules into it
 - combine `core`, `orchestration`, and coding-agent modules into one Grav execution layer
 - connect `ollama` and `memory` behind Gravity-owned service adapters
-- combine the three voice modules into one Gravity voice stack
+- combine `voice-vibevoice` with the voice apps into one Gravity voice stack
 - expose `gateway` and `defense` as operator modules inside the same system

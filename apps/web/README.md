@@ -1,6 +1,6 @@
-# Ash
+# Gravity Web
 
-Ash is a UI-first Customer Success Management (CSM) dashboard built with:
+Gravity Web is the main UI shell for Grav. It currently uses the Ash interface foundation while being reshaped into one unified Gravity command center.
 
 - Next.js App Router
 - TypeScript
@@ -77,7 +77,7 @@ pnpm lint
 
 ## Mock Data and Production Notes
 
-Current ticket and workspace content is mock data for UI demonstration.
+Current ticket and workspace content is still partly mock data while the Gravity endpoint layer is being connected.
 
 Before using this in production:
 
