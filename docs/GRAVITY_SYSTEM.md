@@ -48,7 +48,12 @@ The user-facing workspace for chat, tools, sessions, mode-switching, memory brow
 Primary sources:
 
 - `modules/grav-ui-ash`
-- `modules/grav-chat-astrbot/dashboard`
+
+Rule:
+
+- Gravity exposes one interface only
+- imported module dashboards are not the primary entrypoint
+- AstrBot and Ollama are connected as capabilities, not mounted as separate frontends
 
 ### 2. Core
 

@@ -60,6 +60,12 @@ Gravity should feel like one operating layer with one assistant identity:
 3. expose unified adapters for local models, memory, voice, coding, gateway, and security
 4. normalize each module into shared Gravity contracts over time
 
+## Current interface rule
+
+- `modules/grav-ui-ash` is the only primary interface
+- Ollama is connected as an external engine through `OLLAMA_BASE_URL`
+- AstrBot dashboard startup is disabled by default inside Gravity
+
 ## Likely additions
 
 The imported modules already cover a lot, but Gravity will probably improve with dedicated support for:

@@ -1,15 +1,15 @@
 import { GravPageTemplate } from "@/components/grav-page-template"
 import { getRouteByPathOrThrow } from "@/lib/grav-routes"
 
-const route = getRouteByPathOrThrow("/automation")
+const route = getRouteByPathOrThrow("/system")
 
-export default function AutomationPage() {
+export default function SystemPage() {
   return (
     <GravPageTemplate
       title={route.title}
       description={route.description}
       metrics={route.templateMetrics}
-      primaryActionLabel="Open automations"
+      primaryActionLabel="Inspect host"
     />
   )
 }

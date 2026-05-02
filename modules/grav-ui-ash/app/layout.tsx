@@ -17,11 +17,11 @@ const fontMono = Geist_Mono({
 
 export const metadata: Metadata = {
   title: {
-    default: "Ash CSM UI",
-    template: "%s | Ash CSM UI",
+    default: "Gravity",
+    template: "%s | Gravity",
   },
   description:
-    "Ash CSM workspace UI built with Next.js, TypeScript, Tailwind CSS, and shadcn/ui.",
+    "Gravity is the unified interface for Grav, local runtimes, memory, automation, and system operations.",
 }
 
 export default function RootLayout({

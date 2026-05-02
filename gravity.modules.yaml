@@ -8,6 +8,7 @@ modules:
     path: modules/grav-ui-ash
     language: typescript
     status: active
+    interface_role: primary
     capabilities:
       - ui
       - dashboard
@@ -17,11 +18,11 @@ modules:
     path: modules/grav-chat-astrbot
     language: python
     status: active
+    interface_role: backend-only
     capabilities:
       - chat
       - plugins
       - multi-platform
-      - dashboard
 
   - id: grav-dev-openhands
     path: modules/grav-dev-openhands
@@ -72,6 +73,7 @@ modules:
     path: modules/grav-runtime-ollama
     language: go
     status: active
+    interface_role: engine-only
     capabilities:
       - local-models
       - inference

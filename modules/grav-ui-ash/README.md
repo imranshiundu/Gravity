@@ -36,7 +36,7 @@ Ash is a UI-first Customer Success Management (CSM) dashboard built with:
   - `ui/`: shadcn-style primitives
 
 - `lib/`
-  - `csm-routes.ts`: route metadata, sidebar previews, template metrics
+  - `grav-routes.ts`: route metadata, sidebar previews, template metrics
   - `tickets/*`: ticket domain types and mock data
   - `current-user.ts`: demo actor/profile data
 

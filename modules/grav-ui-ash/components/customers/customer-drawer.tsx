@@ -62,6 +62,7 @@ type CustomerDrawerProps = {
   onPrevious: () => void
   onNext: () => void
   onClose: () => void
+  onAssign?: () => void
   onViewProfile: () => void
 }
 

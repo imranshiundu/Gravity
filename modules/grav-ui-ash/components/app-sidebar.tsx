@@ -5,13 +5,19 @@ import { Suspense } from "react"
 import Link from "next/link"
 import { usePathname } from "next/navigation"
 import {
+  IconBrain,
   IconBook,
   IconCommand,
   IconInbox,
   IconLock,
   IconMessage2,
   IconNotebook,
+  IconRadar2,
+  IconSettings,
   IconSettingsAutomation,
+  IconShieldLock,
+  IconStack2,
+  IconTerminal2,
   IconTicket,
   IconUser,
   IconUsersGroup,
@@ -34,23 +40,28 @@ import {
 } from "@/components/ui/sidebar"
 import { Switch } from "@/components/ui/switch"
 import {
-  csmRoutes,
+  gravNavigationRoutes,
   getRouteByPathname,
-  type CsmRoute,
-  type CsmRouteIconKey,
-} from "@/lib/csm-routes"
+  type GravRoute,
+  type GravRouteIconKey,
+} from "@/lib/grav-routes"
 import { cn } from "@/lib/utils"
 
 type SidebarItem = Pick<
-  CsmRoute,
+  GravRoute,
   "title" | "path" | "icon" | "sidebarPreview"
 >
 
 function matchByPathname(pathname: string) {
-  return (getRouteByPathname(pathname) ?? csmRoutes[0]) as SidebarItem
+  return (getRouteByPathname(pathname) ?? gravNavigationRoutes[0]) as SidebarItem
 }
 
-function renderSidebarIcon(icon: CsmRouteIconKey) {
+function renderSidebarIcon(icon: GravRouteIconKey) {
+  if (icon === "assistant") return <IconBrain />
+  if (icon === "runtime") return <IconRadar2 />
+  if (icon === "memory") return <IconStack2 />
+  if (icon === "system") return <IconTerminal2 />
+  if (icon === "security") return <IconShieldLock />
   if (icon === "inbox") return <IconInbox />
   if (icon === "tickets") return <IconTicket />
   if (icon === "customers") return <IconUser />
@@ -59,6 +70,7 @@ function renderSidebarIcon(icon: CsmRouteIconKey) {
   if (icon === "knowledge-base") return <IconBook />
   if (icon === "macros") return <IconMessage2 />
   if (icon === "automation") return <IconSettingsAutomation />
+  if (icon === "settings") return <IconSettings />
   return <IconLock />
 }
 
@@ -98,7 +110,7 @@ export function AppSidebar({
               <SidebarMenuButton
                 size="lg"
                 className="overflow-hidden rounded-none md:h-8 md:p-0"
-                render={<Link href="/tickets" />}
+                render={<Link href="/assistant" />}
               >
                 <div
                   className="flex aspect-square size-8 items-center justify-center text-primary-foreground"
@@ -113,8 +125,8 @@ export function AppSidebar({
                   <IconCommand className="size-4" />
                 </div>
                 <div className="grid flex-1 text-left text-sm leading-tight">
-                  <span className="truncate font-medium">Ash</span>
-                  <span className="truncate text-xs">Workspace</span>
+                  <span className="truncate font-medium">Gravity</span>
+                  <span className="truncate text-xs">Grav interface</span>
                 </div>
               </SidebarMenuButton>
             </SidebarMenuItem>
@@ -124,7 +136,7 @@ export function AppSidebar({
           <SidebarGroup>
             <SidebarGroupContent className="px-1.5 md:px-0">
               <SidebarMenu>
-                {csmRoutes.map((item) => (
+                {gravNavigationRoutes.map((item) => (
                   <SidebarMenuItem key={item.title}>
                     <SidebarMenuButton
                       render={<Link href={item.path} />}

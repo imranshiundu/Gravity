@@ -40,6 +40,11 @@ logo_tmpl = r"""
 """
 
 
+def is_astrbot_dashboard_enabled() -> bool:
+    value = os.getenv("GRAVITY_ENABLE_ASTRBOT_DASHBOARD", "").strip().lower()
+    return value in {"1", "true", "yes", "on"}
+
+
 def check_env() -> None:
     if not (sys.version_info.major == 3 and sys.version_info.minor >= 10):
         logger.error("请使用 Python3.10+ 运行本项目。")
@@ -105,13 +110,17 @@ async def check_dashboard_files(webui_dir: str | None = None):
 
 async def main_async(webui_dir_arg: str | None) -> None:
     """主异步入口"""
-    # 检查仪表板文件
-    webui_dir = await check_dashboard_files(webui_dir_arg)
-    if webui_dir is None:
-        logger.warning(
-            "管理面板文件检查失败，WebUI 功能将不可用。"
-            "请检查网络连接或手动指定 --webui-dir 参数。"
-        )
+    webui_dir = None
+    if is_astrbot_dashboard_enabled():
+        # 检查仪表板文件
+        webui_dir = await check_dashboard_files(webui_dir_arg)
+        if webui_dir is None:
+            logger.warning(
+                "管理面板文件检查失败，WebUI 功能将不可用。"
+                "请检查网络连接或手动指定 --webui-dir 参数。"
+            )
+    else:
+        logger.info("AstrBot dashboard is disabled. Gravity UI is the primary interface.")
 
     db = db_helper
 

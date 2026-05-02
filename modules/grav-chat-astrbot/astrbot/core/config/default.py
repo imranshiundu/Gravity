@@ -242,7 +242,7 @@ DEFAULT_CONFIG = {
     "http_proxy": "",
     "no_proxy": ["localhost", "127.0.0.1", "::1", "10.*", "192.168.*"],
     "dashboard": {
-        "enable": True,
+        "enable": False,
         "username": "astrbot",
         "password": "77b90590a8945a7d36c963981a307dc9",
         "jwt_secret": "",

@@ -1,11 +1,11 @@
-import { CsmPageTemplate } from "@/components/csm-page-template"
-import { getRouteByPathOrThrow } from "@/lib/csm-routes"
+import { GravPageTemplate } from "@/components/grav-page-template"
+import { getRouteByPathOrThrow } from "@/lib/grav-routes"
 
 const route = getRouteByPathOrThrow("/internal-notes")
 
 export default function InternalNotesPage() {
   return (
-    <CsmPageTemplate
+    <GravPageTemplate
       title={route.title}
       description={route.description}
       metrics={route.templateMetrics}

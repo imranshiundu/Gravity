@@ -34,7 +34,7 @@ import {
   SidebarTrigger,
 } from "@/components/ui/sidebar"
 import { currentUser } from "@/lib/current-user"
-import { getRouteByPathname } from "@/lib/csm-routes"
+import { getRouteByPathname } from "@/lib/grav-routes"
 import { cn } from "@/lib/utils"
 
 type AppShellDisplayMode = "default" | "ticket-detail"
@@ -91,7 +91,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
                   <BreadcrumbSeparator className="hidden md:block" />
                   <BreadcrumbItem>
                     <BreadcrumbPage>
-                      {activeRoute?.title ?? "Dashboard"}
+                      {activeRoute?.title ?? "Gravity"}
                     </BreadcrumbPage>
                   </BreadcrumbItem>
                 </BreadcrumbList>

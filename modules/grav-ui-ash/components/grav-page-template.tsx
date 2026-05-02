@@ -8,27 +8,27 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
-import type { CsmTemplateMetric } from "@/lib/csm-routes"
+import type { GravTemplateMetric } from "@/lib/grav-routes"
 
-type CsmPageTemplateProps = {
+type GravPageTemplateProps = {
   title: string
   description: string
-  metrics?: CsmTemplateMetric[]
+  metrics?: GravTemplateMetric[]
   primaryActionLabel?: string
 }
 
-const fallbackMetrics: CsmTemplateMetric[] = [
-  { label: "Open Items", value: "24" },
-  { label: "Resolved Today", value: "18", tone: "positive" },
-  { label: "SLA Health", value: "98.2%", tone: "positive" },
+const fallbackMetrics: GravTemplateMetric[] = [
+  { label: "Open modules", value: "14" },
+  { label: "Unified interface", value: "1", tone: "positive" },
+  { label: "Integration status", value: "In progress", tone: "warning" },
 ]
 
-export function CsmPageTemplate({
+export function GravPageTemplate({
   title,
   description,
   metrics = fallbackMetrics,
-  primaryActionLabel = "Create New",
-}: CsmPageTemplateProps) {
+  primaryActionLabel = "Open section",
+}: GravPageTemplateProps) {
   return (
     <>
       <div className="grid auto-rows-min gap-4 md:grid-cols-3">
@@ -83,7 +83,8 @@ export function CsmPageTemplate({
           {description}
         </p>
         <p className="mt-3 text-xs text-muted-foreground">
-          Demo data for UI showcase. Replace with real API data in production.
+          Gravity shell placeholder. Replace with live module data and controls
+          as integration deepens.
         </p>
         <Button className="mt-4 hidden sm:inline-flex">
           {primaryActionLabel}
@@ -96,7 +97,7 @@ export function CsmPageTemplate({
         style={{
           bottom: "calc(env(safe-area-inset-bottom, 0px) + 1rem)",
         }}
-        aria-label="Create new item"
+        aria-label={primaryActionLabel}
       >
         <IconPlus className="size-5" />
         <span className="sr-only">{primaryActionLabel}</span>

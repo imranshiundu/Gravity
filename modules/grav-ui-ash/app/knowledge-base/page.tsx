@@ -1,11 +1,11 @@
-import { CsmPageTemplate } from "@/components/csm-page-template"
-import { getRouteByPathOrThrow } from "@/lib/csm-routes"
+import { GravPageTemplate } from "@/components/grav-page-template"
+import { getRouteByPathOrThrow } from "@/lib/grav-routes"
 
 const route = getRouteByPathOrThrow("/knowledge-base")
 
 export default function KnowledgeBasePage() {
   return (
-    <CsmPageTemplate
+    <GravPageTemplate
       title={route.title}
       description={route.description}
       metrics={route.templateMetrics}
