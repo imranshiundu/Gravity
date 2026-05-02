@@ -1,0 +1,132 @@
+system:
+  name: Gravity
+  assistant: Grav
+  mode: unified-monorepo
+
+modules:
+  - id: grav-ui-ash
+    path: modules/grav-ui-ash
+    language: typescript
+    status: active
+    capabilities:
+      - ui
+      - dashboard
+      - workspace
+
+  - id: grav-chat-astrbot
+    path: modules/grav-chat-astrbot
+    language: python
+    status: active
+    capabilities:
+      - chat
+      - plugins
+      - multi-platform
+      - dashboard
+
+  - id: grav-dev-openhands
+    path: modules/grav-dev-openhands
+    language: python
+    status: active
+    capabilities:
+      - coding
+      - agent-execution
+      - software-tasks
+
+  - id: grav-dev-aider
+    path: modules/grav-dev-aider
+    language: python
+    status: active
+    capabilities:
+      - coding
+      - cli
+      - repository-editing
+
+  - id: grav-dev-claw
+    path: modules/grav-dev-claw
+    language: rust
+    status: active
+    capabilities:
+      - coding
+      - agent-patterns
+
+  - id: grav-core-claude-src
+    path: modules/grav-core-claude-src
+    language: typescript
+    status: active
+    capabilities:
+      - assistant-core-patterns
+      - terminal-agent-ux
+      - sessions
+      - tools
+
+  - id: grav-agents-openai-sdk
+    path: modules/grav-agents-openai-sdk
+    language: typescript
+    status: active
+    capabilities:
+      - orchestration
+      - agents
+      - workflows
+
+  - id: grav-runtime-ollama
+    path: modules/grav-runtime-ollama
+    language: go
+    status: active
+    capabilities:
+      - local-models
+      - inference
+      - serving
+
+  - id: grav-memory-mempalace
+    path: modules/grav-memory-mempalace
+    language: python
+    status: active
+    capabilities:
+      - memory
+      - retrieval
+      - indexing
+
+  - id: grav-voice-vibevoice
+    path: modules/grav-voice-vibevoice
+    language: python
+    status: active
+    capabilities:
+      - speech-to-text
+      - text-to-speech
+      - voice-ai
+
+  - id: grav-voice-realtime-agents
+    path: modules/grav-voice-realtime-agents
+    language: typescript
+    status: active
+    capabilities:
+      - realtime
+      - streaming-voice
+      - voice-agents
+
+  - id: grav-voice-realtime-console
+    path: modules/grav-voice-realtime-console
+    language: javascript
+    status: active
+    capabilities:
+      - webrtc
+      - realtime-console
+      - voice-ui
+
+  - id: grav-gateway-locci
+    path: modules/grav-gateway-locci
+    language: rust
+    status: active
+    capabilities:
+      - gateway
+      - proxy
+      - traffic-control
+
+  - id: grav-security-odk
+    path: modules/grav-security-odk
+    language: python
+    status: active
+    capabilities:
+      - defensive-security
+      - audit
+      - system-tooling

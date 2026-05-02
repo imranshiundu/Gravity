@@ -1,0 +1,66 @@
+---
+title: 音声エージェントの概要
+description: Build realtime voice assistants using RealtimeAgent and RealtimeSession
+---
+
+import { Aside, LinkCard } from '@astrojs/starlight/components';
+
+## 概要
+
+![Realtime Agents](https://cdn.openai.com/API/docs/images/diagram-speech-to-speech.png)
+
+音声エージェントを使うと、 OpenAI の speech-to-speech モデル上に低レイテンシな音声インターフェースを構築できます。 SDK は Realtime API のメンタルモデルをそのまま維持しつつ、 元のイベントフローを `RealtimeAgent` 、 `RealtimeSession` 、およびトランスポートヘルパーでラップし、ツール、ガードレール、ハンドオフ、セッション履歴をより扱いやすくします。
+
+内部では、公式ガイドの [Realtime API with WebRTC](https://developers.openai.com/api/docs/guides/realtime-webrtc/)、 [Realtime conversations](https://developers.openai.com/api/docs/guides/realtime-conversations/)、および [voice activity detection](https://developers.openai.com/api/docs/guides/realtime-vad/) にある同じ Realtime の概念が引き続き適用されます。 Voice Agents SDK はその API の上に TypeScript ファーストのレイヤーを追加するため、トランスポートやイベント処理をゼロから作り直すのではなく、製品ロジックに集中できます。
+
+<Aside type="note">
+  ブラウザクライアントを WebRTC
+  で接続する場合は、まずクイックスタートから始めてください。 WebRTC、
+  WebSocket、 SIP、 Twilio、または Cloudflare Workers
+  のどれを使うか検討している場合は、 まずトランスポートガイドに進んでください。
+</Aside>
+
+## はじめに
+
+<LinkCard
+  title="クイックスタート"
+  href="/openai-agents-js/ja/guides/voice-agents/quickstart"
+  description="OpenAI Agents SDK を使って、ほんの数分ではじめてのエージェントをつくることができます。"
+/>
+
+<LinkCard
+  title="音声エージェントの構築"
+  href="/openai-agents-js/ja/guides/voice-agents/build"
+  description="SDK におけるセッションライフサイクル、 VAD、割り込み、マルチモーダル入力、ツール、履歴の仕組みを学びます。"
+/>
+
+<LinkCard
+  title="リアルタイムトランスポート"
+  href="/openai-agents-js/ja/guides/voice-agents/transport"
+  description="WebRTC、 WebSocket、 SIP、またはカスタムトランスポートから選択し、どのタイミングで元のイベントに移行すべきかを把握します。"
+/>
+
+## SDK の追加機能
+
+- エフェメラルクライアントトークンを使った、ブラウザファーストな WebRTC セットアップ
+- サーバーサイドの WebSocket および SIP トランスポートオプション
+- 自動的な割り込み処理とローカル会話履歴の更新
+- リアルタイムなハンドオフによるマルチエージェントオーケストレーション
+- 関数ツール、 hosted MCP ツール、承認、および委任パターン
+- ライブ音声インタラクション向けの出力ガードレールとトレーシングのサポート
+
+## 次に読むページ
+
+| 必要なこと | 参照先 |
+| --- | --- |
+| WebRTC とエフェメラルトークンを使ってブラウザクライアントを安全に接続する | [クイックスタート](/openai-agents-js/guides/voice-agents/quickstart) |
+| セッションライフサイクル、 VAD、割り込み、画像入力、ツール、履歴を理解する | [音声エージェントの構築](/openai-agents-js/guides/voice-agents/build) |
+| WebRTC、 WebSocket、 SIP、カスタムトランスポートのどれを使うか決める | [リアルタイムトランスポート](/openai-agents-js/guides/voice-agents/transport) |
+| Twilio 上で電話やテレフォニー体験を実行する | [Twilio 上の Realtime Agent](/openai-agents-js/extensions/twilio) |
+| Cloudflare Workers やその他の workerd ランタイムから接続する | [Cloudflare 上の Realtime Agent](/openai-agents-js/extensions/cloudflare) |
+
+## speech-to-speech を選ぶ理由
+
+speech-to-speech モデルはユーザーの音声を直接処理するため、各ターンごとに speech-to-text、テキスト推論、 text-to-speech の個別チェーンを構築する必要がありません。 これによりレイテンシが抑えられ、リアルタイムアプリケーションにおいて割り込み、テキストと音声が混在する入力、ツール呼び出しがより自然に感じられます。
+
+![Speech-to-speech model](https://cdn.openai.com/API/docs/images/diagram-chained-agent.png)
