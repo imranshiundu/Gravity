@@ -54,11 +54,38 @@ Primary sources:
 
 The Gravity brain that brokers requests across models, tools, memory, and runtime services.
 
-Primary sources:
+Gravity Core should be Gravity-owned, not hidden inside an imported module.
+
+Target path:
+
+```text
+services/grav-core/
+```
+
+Shared contracts target path:
+
+```text
+packages/grav-contracts/
+```
+
+Primary sources for patterns:
 
 - `modules/grav-core-claude-src`
 - `modules/grav-agents-openai-sdk`
 - patterns from coding-agent modules
+
+Gravity Core should own:
+
+- intent routing
+- mode selection
+- model routing
+- memory brokering
+- tool registry
+- permission checks
+- approval requests
+- module adapter calls
+- audit logs
+- response composition
 
 ### 3. Capability fabric
 
@@ -72,6 +99,8 @@ The module network that provides actual power:
 - defensive security
 - future business connectors
 
+Each capability should be exposed through Gravity contracts instead of direct uncontrolled calls.
+
 ### 4. Runtime data
 
 Shared storage for:
@@ -81,6 +110,9 @@ Shared storage for:
 - indexes
 - logs
 - user and workspace state
+- audit events
+- approvals
+- tool execution history
 
 ## Convergence path
 
@@ -121,3 +153,21 @@ Reason:
 ## Next technical step
 
 Create a small `packages/grav-contracts` package plus a `services/grav-core` wrapper so every module can start registering tools, models, actions, and UI surfaces into one shared Gravity contract.
+
+## Power expectation
+
+Gravity can become very powerful, but only if the kernel is controlled.
+
+The imported modules are engines, tools, limbs, channels, memory, and infrastructure. Gravity Core is what prevents them from becoming chaos.
+
+The goal is not to make Grav do everything blindly. The goal is to make Grav do many things through:
+
+- shared contracts
+- explicit modes
+- approval gates
+- audit logs
+- memory boundaries
+- local-first model routing
+- defensive security rules
+
+That is what turns many repos into one serious system.
