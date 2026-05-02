@@ -11,7 +11,7 @@ They connect Gravity to places where users and businesses already communicate.
 ## Source module
 
 ```text
-modules/grav-chat-astrbot
+modules/channels
 ```
 
 ## Where it should live
@@ -25,7 +25,7 @@ services/channel-service/
 Adapters:
 
 ```text
-modules/grav-chat-astrbot
+modules/channels
 modules/*-adapter where needed
 ```
 

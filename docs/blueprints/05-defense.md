@@ -11,7 +11,7 @@ It must be defensive, permissioned, and audit-friendly.
 ## Source module
 
 ```text
-modules/grav-security-odk
+modules/defense
 ```
 
 ## Where it should live

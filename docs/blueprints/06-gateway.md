@@ -11,7 +11,7 @@ It routes traffic between the UI, Core, model runtime, memory, coding, defense, 
 ## Source module
 
 ```text
-modules/grav-gateway-locci
+modules/gateway
 ```
 
 ## Where it should live
@@ -19,7 +19,7 @@ modules/grav-gateway-locci
 Imported module:
 
 ```text
-modules/grav-gateway-locci/
+modules/gateway/
 ```
 
 Gravity-owned service/config:
@@ -71,7 +71,7 @@ Example:
 
 ```json
 {
-  "grav-core": "online",
+  "core": "online",
   "ollama": "online",
   "memory-service": "online",
   "code-service": "offline",
@@ -137,7 +137,7 @@ services/gateway/
 └─ README.md
 ```
 
-If Locci Proxy is used directly, keep Gravity-specific config in `services/gateway/` and keep upstream code in `modules/grav-gateway-locci/`.
+If Locci Proxy is used directly, keep Gravity-specific config in `services/gateway/` and keep upstream code in `modules/gateway/`.
 
 ## Route blueprint
 

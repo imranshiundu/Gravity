@@ -30,7 +30,7 @@ Memory service
 Imported module:
 
 ```text
-modules/grav-memory-mempalace/
+modules/memory/
 ```
 
 Gravity-owned service:

@@ -17,20 +17,20 @@ We are not shrinking the workspace into a single-language app first. We are buil
 ```text
 Gravity/
 ├── modules/
-│   ├── grav-core
-│   ├── grav-ollama
-│   ├── grav-memory
-│   ├── grav-coding-openhands
-│   ├── grav-coding-aider
-│   ├── grav-coding-claw
-│   ├── grav-defense
-│   ├── grav-gateway
-│   ├── grav-ui
-│   ├── grav-channels
-│   ├── grav-voice-vibevoice
-│   ├── grav-voice-realtime-agents
-│   ├── grav-voice-console
-│   └── grav-orchestration
+│   ├── core
+│   ├── ollama
+│   ├── memory
+│   ├── coding-openhands
+│   ├── coding-aider
+│   ├── coding-claw
+│   ├── defense
+│   ├── gateway
+│   ├── ui
+│   ├── channels
+│   ├── voice-vibevoice
+│   ├── voice-realtime-agents
+│   ├── voice-console
+│   └── orchestration
 ├── apps/
 ├── services/
 ├── packages/
@@ -47,7 +47,7 @@ The user-facing workspace for chat, tools, sessions, mode-switching, memory brow
 
 Primary sources:
 
-- `modules/grav-ui`
+- `modules/ui`
 
 Rule:
 
@@ -75,8 +75,8 @@ packages/grav-contracts/
 
 Primary sources for patterns:
 
-- `modules/grav-core`
-- `modules/grav-orchestration`
+- `modules/core`
+- `modules/orchestration`
 - patterns from coding-agent modules
 
 Gravity Core should own:
@@ -151,7 +151,7 @@ Reason:
 
 - extracted all archive files
 - removed the original `.zip` archives
-- renamed imported projects into Gravity-style module names
+- renamed imported projects into plain capability module names
 - removed nested `.git` directories so the workspace can be versioned as one repo
 - reduced the documentation set to a smaller core
 

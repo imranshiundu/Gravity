@@ -91,10 +91,10 @@ Goal: give Grav safe coding hands.
 
 Source modules:
 
-- grav-dev-claw
-- grav-dev-openhands
-- grav-dev-aider
-- grav-core-claude-src patterns
+- coding-claw
+- coding-openhands
+- coding-aider
+- core patterns
 
 Deliverables:
 
@@ -157,8 +157,8 @@ Goal: create the main Gravity user experience.
 
 Source modules:
 
-- grav-ui-ash
-- grav-chat-astrbot/dashboard
+- ui
+- channels/dashboard
 - realtime console patterns later
 
 Deliverables:
@@ -183,7 +183,7 @@ Goal: let Grav operate outside the main UI.
 
 Source module:
 
-- grav-chat-astrbot
+- channels
 
 Deliverables:
 
@@ -205,9 +205,9 @@ Goal: give Grav speech and live interaction.
 
 Source modules:
 
-- grav-voice-vibevoice
-- grav-voice-realtime-agents
-- grav-voice-realtime-console
+- voice-vibevoice
+- voice-realtime-agents
+- voice-console
 
 Deliverables:
 

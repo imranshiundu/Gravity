@@ -50,7 +50,7 @@ const scanRepoTool: GravityTool = {
   name: "code.scanRepo",
   title: "Scan repository",
   description: "Read a repository and summarize structure, risks, and next steps.",
-  moduleId: "grav-dev-claw",
+  moduleId: "coding-claw",
   risk: "safe",
   requiresApproval: false,
   inputSchema: {},

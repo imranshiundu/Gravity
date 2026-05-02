@@ -12,16 +12,16 @@ Everything in this repo is part of Gravity.
 
 We are not treating the imported projects as optional references anymore. They are now Gravity modules, each contributing real capabilities to the final system:
 
-- `grav-core` for assistant UX, terminal-agent behavior, and system foundations
-- `grav-ollama` for the local AI brain
-- `grav-memory` for long-term memory and retrieval
-- `grav-coding-openhands`, `grav-coding-aider`, and `grav-coding-claw` for coding workflows
-- `grav-defense` for defensive security capabilities
-- `grav-gateway` for proxy and gateway behavior
-- `grav-ui` for the primary and only Gravity interface
-- `grav-channels` for multi-platform channels and plugins
-- `grav-voice-vibevoice`, `grav-voice-realtime-agents`, and `grav-voice-console` for speech and realtime interaction
-- `grav-orchestration` for agent orchestration patterns
+- `core` for assistant UX, terminal-agent behavior, and system foundations
+- `ollama` for the local AI brain
+- `memory` for long-term memory and retrieval
+- `coding-openhands`, `coding-aider`, and `coding-claw` for coding workflows
+- `defense` for defensive security capabilities
+- `gateway` for proxy and gateway behavior
+- `ui` for the primary and only Gravity interface
+- `channels` for multi-platform channels and plugins
+- `voice-vibevoice`, `voice-realtime-agents`, and `voice-console` for speech and realtime interaction
+- `orchestration` for agent orchestration patterns
 
 ## Build sequence
 
@@ -118,7 +118,7 @@ Module-level READMEs remain useful as upstream reference material for setup, lic
 
 ## Current interface rule
 
-- `modules/grav-ui` is the only primary interface
+- `modules/ui` is the only primary interface
 - Ollama is connected as an external engine through `OLLAMA_BASE_URL`
 - AstrBot dashboard startup is disabled by default inside Gravity
 

@@ -29,7 +29,7 @@ Local model response
 Ollama itself is an external runtime/module:
 
 ```text
-modules/grav-runtime-ollama/
+modules/ollama/
 ```
 
 Gravity-owned adapter:

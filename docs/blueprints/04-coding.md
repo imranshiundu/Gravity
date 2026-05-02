@@ -11,11 +11,11 @@ It should let Grav inspect repositories, understand code, propose patches, run t
 ## Source modules
 
 ```text
-modules/grav-dev-claw
-modules/grav-dev-openhands
-modules/grav-dev-aider
-modules/grav-core-claude-src
-modules/grav-agents-openai-sdk
+modules/coding-claw
+modules/coding-openhands
+modules/coding-aider
+modules/core
+modules/orchestration
 ```
 
 Each module provides useful patterns, but Gravity should expose coding capability through one Gravity-owned service.

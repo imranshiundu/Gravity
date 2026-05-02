@@ -11,9 +11,9 @@ It should support personal voice control, coding help, business receptionist flo
 ## Source modules
 
 ```text
-modules/grav-voice-vibevoice
-modules/grav-voice-realtime-agents
-modules/grav-voice-realtime-console
+modules/voice-vibevoice
+modules/voice-realtime-agents
+modules/voice-console
 ```
 
 ## Where it should live
