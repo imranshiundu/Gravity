@@ -23,6 +23,27 @@ We are not treating the imported projects as optional references anymore. They a
 - `grav-gateway-locci` for proxy and gateway behavior
 - `grav-security-odk` for defensive security capabilities
 
+## Build sequence
+
+Gravity should be built in this order:
+
+```text
+Core → Ollama → Memory → Coding → Defense → Gateway → UI → Channels → Voice → Business Operator
+```
+
+Canonical blueprints:
+
+1. [Core](docs/blueprints/01-core.md)
+2. [Ollama Runtime](docs/blueprints/02-ollama.md)
+3. [Memory](docs/blueprints/03-memory.md)
+4. [Coding](docs/blueprints/04-coding.md)
+5. [Defense](docs/blueprints/05-defense.md)
+6. [Gateway](docs/blueprints/06-gateway.md)
+7. [UI](docs/blueprints/07-ui.md)
+8. [Channels](docs/blueprints/08-channels.md)
+9. [Voice](docs/blueprints/09-voice.md)
+10. [Business Operator](docs/blueprints/10-business-operator.md)
+
 ## Current layout
 
 ```text
@@ -75,7 +96,14 @@ Imported repos should not bypass Gravity Core. If a module can do something usef
 - [Gravity Contracts](docs/GRAVITY_CONTRACTS.md)
 - [Gravity Safety Policy](docs/GRAVITY_SAFETY_POLICY.md)
 - [Gravity Roadmap](docs/GRAVITY_ROADMAP.md)
+- [Gravity Blueprints](docs/blueprints/README.md)
 - [gravity.modules.yaml](gravity.modules.yaml)
+
+## Documentation source of truth
+
+The blueprint docs in `docs/blueprints/` are the Gravity-level source of truth.
+
+Module-level READMEs remain useful as upstream reference material for setup, license, and source-specific details. They should not be deleted until their critical information has been safely migrated into Gravity-level docs.
 
 ## Immediate build direction
 
