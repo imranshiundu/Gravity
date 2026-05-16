@@ -56,7 +56,7 @@ Example:
 }
 ```
 
-Connected tools:
+Connected safe tools:
 
 ```text
 core.status
@@ -64,7 +64,18 @@ core.modules.list
 core.audit.read
 memory.search
 coding.scan
+coding.modules.inventory
+coding.modules.search
+coding.modules.read
 defense.scan
+```
+
+Registered coding execution tools:
+
+```text
+coding.openhands.run -> approval required, returns 501 until OpenHands contract/sandbox is reviewed
+coding.aider.run     -> approval required, returns 501 until Aider CLI/edit contract is reviewed
+coding.claw.run      -> approval required, returns 501 until Claw contract/sandbox is reviewed
 ```
 
 Registered proxy tools that require module service URLs:
@@ -155,7 +166,7 @@ Chat responses include memory metadata:
 
 ## Guarded local scans
 
-The coding and defense tools use a guarded workspace scanner.
+The coding and defense tools use guarded workspace readers.
 
 Required:
 
@@ -179,6 +190,80 @@ or:
 `coding.scan` inventories routes, fetch callers, command entry points, module entries, TODOs, and secret-like assignments.
 
 `defense.scan` returns only the defensive subset: secret-like assignments, TODO markers, and large skipped files.
+
+## Coding module binding
+
+The coding modules are bound as inspectable source capabilities first, not fake execution shells.
+
+Core scans the real folders:
+
+```text
+modules/coding-openhands
+modules/coding-aider
+modules/coding-claw
+```
+
+Safe inventory:
+
+```json
+{
+  "toolName": "coding.modules.inventory",
+  "input": {
+    "moduleId": "coding-aider",
+    "includeFiles": false
+  }
+}
+```
+
+This reports discovered manifests, CLI entrypoints, HTTP routes, tool/MCP-related files, HTTP clients, manifest signals, warnings, and whether the module folder is available in the workspace.
+
+Safe search:
+
+```json
+{
+  "toolName": "coding.modules.search",
+  "input": {
+    "query": "FastAPI",
+    "moduleId": "coding-openhands",
+    "limit": 10
+  }
+}
+```
+
+Safe read:
+
+```json
+{
+  "toolName": "coding.modules.read",
+  "input": {
+    "file": "modules/coding-aider/pyproject.toml"
+  }
+}
+```
+
+`coding.modules.read` is intentionally scoped to the three coding module trees. It blocks workspace escape paths, non-text files, oversized files, and credential-style files.
+
+Current known module signals from manifests:
+
+```text
+modules/coding-openhands/pyproject.toml -> OpenHands Python project, FastAPI, MCP/FastMCP, OpenHands SDK/server/tools dependencies
+modules/coding-aider/pyproject.toml     -> Aider Python project, real CLI script: aider = aider.main:main
+modules/coding-claw                     -> inventory is runtime-discovered; missing folders are reported as unavailable, not faked
+```
+
+Dangerous execution/edit tools are registered but unavailable:
+
+```json
+{
+  "toolName": "coding.aider.run",
+  "input": {
+    "approved": true,
+    "body": {}
+  }
+}
+```
+
+Even after approval, current behavior is `501` until the real module contract, sandbox, command allowlist, rollback/audit design, and workspace write policy are reviewed.
 
 ## Audit log
 
@@ -219,6 +304,8 @@ POST /api/core/chat
 GET  /api/core/audit?limit=50
 ```
 
+The existing web tool runner bridge `POST /api/core/tools/run` automatically forwards the new coding module tools to Core when `GRAVITY_CORE_BASE_URL` is configured.
+
 ## Current truth
 
 Connected through Core:
@@ -229,6 +316,7 @@ Connected through Core:
 - Core tool runner
 - Core audit events
 - guarded coding scan
+- guarded coding module inventory/search/read for OpenHands, Aider, and Claw
 - guarded defense scan
 - MemPalace search
 
@@ -241,10 +329,10 @@ Registered but externally configured:
 
 Still missing deeper module binding:
 
-- real coding edit/run actions behind approval gates
-- direct Aider/OpenHands/Claw execution contracts
+- direct Aider/OpenHands/Claw execution after contract review
+- coding sandbox, command allowlist, rollback, and write-policy enforcement
 - direct channels plugin/action inventory
 - direct voice STT/TTS route mapping
 - gateway route-control adapter
 - orchestration workflow inventory
-- CLI contract binding
+- CLI contract binding for non-coding modules
