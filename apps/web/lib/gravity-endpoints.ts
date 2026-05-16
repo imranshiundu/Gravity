@@ -17,7 +17,7 @@ export const gravityEndpoints = {
     defenseStatus: "/api/defense/status",
     gatewayStatus: "/api/gateway/status",
   },
-  planned: {
+  actions: {
     memorySearch: "/api/memory/search",
     memorySave: "/api/memory/save",
     memoryForget: "/api/memory/forget",
@@ -25,5 +25,12 @@ export const gravityEndpoints = {
     defenseScan: "/api/defense/scan",
     voiceSession: "/api/voice/session",
     channelsInbox: "/api/channels/inbox",
+  },
+  planned: {
+    gatewayProxy: "/api/gateway/proxy",
+    codingEdit: "/api/coding/edit",
+    codingRun: "/api/coding/run",
+    defenseReport: "/api/defense/report",
+    channelsSend: "/api/channels/send",
   },
 } as const
