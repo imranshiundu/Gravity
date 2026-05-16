@@ -1,5 +1,10 @@
-import type { GravityTool, GravityToolRisk } from "@gravity/contracts"
+import type { GravityTool } from "@gravity/contracts"
 
+import { getChannelsInventory, readChannelsInbox, sendChannelMessage } from "./adapters/channels-adapter.js"
+import { getGatewayInventory, getGatewayStatus, proxyGatewayRequest } from "./adapters/gateway-adapter.js"
+import { getOllamaInventory, listOllamaModels, runOllamaChatAdapter, runOllamaGenerate } from "./adapters/ollama-adapter.js"
+import { getOrchestrationInventory, runOrchestrationWorkflow } from "./adapters/orchestration-adapter.js"
+import { getVoiceInventory, createVoiceSession, runVoiceStt, runVoiceTts } from "./adapters/voice-adapter.js"
 import { readAuditEvents } from "./audit.js"
 import {
   getCodingExecutionUnavailable,
@@ -17,45 +22,6 @@ export type CoreToolRunInput = {
   input?: Record<string, unknown>
 }
 
-type ProxyTarget = {
-  envName: string
-  defaultPath: string
-  moduleId: string
-}
-
-const proxyTargets: Record<string, ProxyTarget> = {
-  "channels.inbox": {
-    envName: "GRAVITY_CHANNELS_BASE_URL",
-    defaultPath: "/inbox",
-    moduleId: "channels",
-  },
-  "channels.send": {
-    envName: "GRAVITY_CHANNELS_BASE_URL",
-    defaultPath: "/send",
-    moduleId: "channels",
-  },
-  "voice.session": {
-    envName: "GRAVITY_VOICE_BASE_URL",
-    defaultPath: "/session",
-    moduleId: "voice",
-  },
-  "gateway.status": {
-    envName: "GRAVITY_GATEWAY_BASE_URL",
-    defaultPath: "/status",
-    moduleId: "gateway",
-  },
-  "gateway.proxy": {
-    envName: "GRAVITY_GATEWAY_BASE_URL",
-    defaultPath: "/proxy",
-    moduleId: "gateway",
-  },
-  "orchestration.workflow.run": {
-    envName: "GRAVITY_ORCHESTRATION_BASE_URL",
-    defaultPath: "/workflow/run",
-    moduleId: "orchestration",
-  },
-}
-
 const moduleIdEnum = [
   "memory",
   "coding-openhands",
@@ -70,263 +36,111 @@ const moduleIdEnum = [
   "voice",
 ]
 
+function tool(
+  name: string,
+  title: string,
+  description: string,
+  moduleId: string,
+  risk: GravityTool["risk"] = "safe",
+  requiresApproval = false,
+  inputSchema: Record<string, unknown> = { type: "object", properties: {} }
+): GravityTool {
+  return { name, title, description, moduleId, risk, requiresApproval, inputSchema }
+}
+
+const safeReadSchema = { type: "object", properties: { file: { type: "string" } }, required: ["file"] }
+const serviceInputSchema = {
+  type: "object",
+  properties: {
+    method: { type: "string" },
+    path: { type: "string" },
+    body: { type: "object" },
+  },
+}
+const approvedServiceInputSchema = {
+  type: "object",
+  properties: {
+    approved: { type: "boolean" },
+    method: { type: "string" },
+    path: { type: "string" },
+    body: { type: "object" },
+  },
+}
+
 export const gravityCoreTools: GravityTool[] = [
-  {
-    name: "core.status",
-    title: "Core status",
-    description: "Return Gravity Core status, module registry, provider registry, and route map.",
-    moduleId: "core",
-    risk: "safe",
-    requiresApproval: false,
-    inputSchema: { type: "object", properties: {} },
-  },
-  {
-    name: "core.modules.list",
-    title: "List modules",
-    description: "List Gravity modules and their exposed capabilities.",
-    moduleId: "core",
-    risk: "safe",
-    requiresApproval: false,
-    inputSchema: { type: "object", properties: {} },
-  },
-  {
-    name: "core.audit.read",
-    title: "Read audit events",
-    description: "Read recent Core audit events.",
-    moduleId: "core",
-    risk: "safe",
-    requiresApproval: false,
-    inputSchema: { type: "object", properties: { limit: { type: "number" } } },
-  },
-  {
-    name: "modules.inventory",
-    title: "Inventory all module bindings",
-    description:
-      "Inventory all known Gravity module source trees, manifests, routes, CLI entrypoints, tool files, service envs, and connection state without executing module code.",
-    moduleId: "core",
-    risk: "safe",
-    requiresApproval: false,
-    inputSchema: {
-      type: "object",
-      properties: {
-        moduleId: { type: "string", enum: moduleIdEnum },
-        includeFiles: { type: "boolean" },
-        includeRoutes: { type: "boolean" },
-      },
-    },
-  },
-  {
-    name: "modules.search",
-    title: "Search all module source trees",
-    description:
-      "Search known module source trees for routes, tools, CLI entrypoints, configs, and capability contracts without executing module code.",
-    moduleId: "core",
-    risk: "safe",
-    requiresApproval: false,
-    inputSchema: {
-      type: "object",
-      properties: {
-        query: { type: "string" },
-        moduleId: { type: "string", enum: moduleIdEnum },
-        limit: { type: "number" },
-      },
-      required: ["query"],
-    },
-  },
-  {
-    name: "modules.read",
-    title: "Read module source file",
-    description:
-      "Read a small text/code file from known module source paths only. Credential-style files and path escapes are blocked.",
-    moduleId: "core",
-    risk: "safe",
-    requiresApproval: false,
-    inputSchema: { type: "object", properties: { file: { type: "string" } }, required: ["file"] },
-  },
-  {
-    name: "memory.search",
-    title: "Search MemPalace",
-    description: "Search the real modules/memory MemPalace backend.",
-    moduleId: "memory",
-    risk: "safe",
-    requiresApproval: false,
-    inputSchema: {
-      type: "object",
-      properties: {
-        query: { type: "string" },
-        wing: { type: "string" },
-        room: { type: "string" },
-        limit: { type: "number" },
-      },
-      required: ["query"],
-    },
-  },
-  {
-    name: "coding.scan",
-    title: "Scan coding workspace",
-    description: "Guarded repository inventory for routes, commands, fetch callers, and module entries.",
-    moduleId: "coding",
-    risk: "safe",
-    requiresApproval: false,
-    inputSchema: { type: "object", properties: {} },
-  },
-  {
-    name: "coding.modules.inventory",
-    title: "Inventory coding modules",
-    description:
-      "Inspect real coding module manifests, CLI entrypoints, routes, tool files, HTTP clients, and warnings under modules/coding-openhands, modules/coding-aider, and modules/coding-claw.",
-    moduleId: "coding",
-    risk: "safe",
-    requiresApproval: false,
-    inputSchema: {
-      type: "object",
-      properties: {
-        moduleId: {
-          type: "string",
-          enum: ["coding-openhands", "coding-aider", "coding-claw"],
-        },
-        includeFiles: { type: "boolean" },
-      },
-    },
-  },
-  {
-    name: "coding.modules.search",
-    title: "Search coding modules",
-    description:
-      "Search within the actual coding module source trees without executing code or modifying files.",
-    moduleId: "coding",
-    risk: "safe",
-    requiresApproval: false,
-    inputSchema: {
-      type: "object",
-      properties: {
-        query: { type: "string" },
-        moduleId: {
-          type: "string",
-          enum: ["coding-openhands", "coding-aider", "coding-claw"],
-        },
-        limit: { type: "number" },
-      },
-      required: ["query"],
-    },
-  },
-  {
-    name: "coding.modules.read",
-    title: "Read coding module file",
-    description:
-      "Read a small text/code file only from modules/coding-openhands, modules/coding-aider, or modules/coding-claw. Credential-style files are blocked.",
-    moduleId: "coding",
-    risk: "safe",
-    requiresApproval: false,
-    inputSchema: {
-      type: "object",
-      properties: {
-        file: { type: "string" },
-      },
-      required: ["file"],
-    },
-  },
-  {
-    name: "coding.openhands.run",
-    title: "Run OpenHands action",
-    description:
-      "Approval-gated placeholder for future OpenHands execution. Currently returns 501 until the real module contract and sandbox policy are reviewed.",
-    moduleId: "coding-openhands",
-    risk: "dangerous",
-    requiresApproval: true,
-    inputSchema: { type: "object", properties: { approved: { type: "boolean" }, body: { type: "object" } } },
-  },
-  {
-    name: "coding.aider.run",
-    title: "Run Aider action",
-    description:
-      "Approval-gated placeholder for future Aider execution. Currently returns 501 until the real CLI contract and edit policy are reviewed.",
-    moduleId: "coding-aider",
-    risk: "dangerous",
-    requiresApproval: true,
-    inputSchema: { type: "object", properties: { approved: { type: "boolean" }, body: { type: "object" } } },
-  },
-  {
-    name: "coding.claw.run",
-    title: "Run Claw action",
-    description:
-      "Approval-gated placeholder for future Claw execution. Currently returns 501 until the real module contract and sandbox policy are reviewed.",
-    moduleId: "coding-claw",
-    risk: "dangerous",
-    requiresApproval: true,
-    inputSchema: { type: "object", properties: { approved: { type: "boolean" }, body: { type: "object" } } },
-  },
-  {
-    name: "defense.scan",
-    title: "Run defensive scan",
-    description: "Guarded defensive scan for secret risks, TODO markers, and large skipped files.",
-    moduleId: "defense",
-    risk: "safe",
-    requiresApproval: false,
-    inputSchema: { type: "object", properties: {} },
-  },
-  {
-    name: "channels.inbox",
-    title: "Channels inbox",
-    description: "Proxy inbox reads to the configured channels module service.",
-    moduleId: "channels",
-    risk: "safe",
-    requiresApproval: false,
-    inputSchema: { type: "object", properties: { method: { type: "string" }, body: { type: "object" } } },
-  },
-  {
-    name: "channels.send",
-    title: "Channels send",
-    description: "Proxy outbound messages to the configured channels module service. Approval is required.",
-    moduleId: "channels",
-    risk: "medium",
-    requiresApproval: true,
-    inputSchema: { type: "object", properties: { body: { type: "object" } } },
-  },
-  {
-    name: "voice.session",
-    title: "Voice session",
-    description: "Create or proxy a realtime voice session through the configured voice module service.",
-    moduleId: "voice",
-    risk: "medium",
-    requiresApproval: false,
-    inputSchema: { type: "object", properties: { body: { type: "object" } } },
-  },
-  {
-    name: "gateway.status",
-    title: "Gateway status",
-    description: "Read configured gateway service status.",
-    moduleId: "gateway",
-    risk: "safe",
-    requiresApproval: false,
-    inputSchema: { type: "object", properties: {} },
-  },
-  {
-    name: "gateway.proxy",
-    title: "Gateway proxy",
-    description: "Proxy a request through the configured gateway service. Approval is required.",
-    moduleId: "gateway",
-    risk: "medium",
-    requiresApproval: true,
-    inputSchema: { type: "object", properties: { body: { type: "object" } } },
-  },
-  {
-    name: "orchestration.workflow.run",
-    title: "Run orchestration workflow",
-    description: "Dispatch a workflow to the configured orchestration module service. Approval is required.",
-    moduleId: "orchestration",
-    risk: "medium",
-    requiresApproval: true,
-    inputSchema: { type: "object", properties: { body: { type: "object" } } },
-  },
+  tool("core.status", "Core status", "Return Gravity Core status, module registry, provider registry, and route map.", "core"),
+  tool("core.modules.list", "List modules", "List Gravity modules and their exposed capabilities.", "core"),
+  tool("core.audit.read", "Read audit events", "Read recent Core audit events.", "core", "safe", false, {
+    type: "object",
+    properties: { limit: { type: "number" } },
+  }),
+  tool(
+    "modules.inventory",
+    "Inventory all module bindings",
+    "Inventory all known Gravity module source trees, manifests, routes, CLI entrypoints, tool files, service envs, and connection state without executing module code.",
+    "core",
+    "safe",
+    false,
+    { type: "object", properties: { moduleId: { type: "string", enum: moduleIdEnum }, includeFiles: { type: "boolean" }, includeRoutes: { type: "boolean" } } }
+  ),
+  tool(
+    "modules.search",
+    "Search all module source trees",
+    "Search known module source trees for routes, tools, CLI entrypoints, configs, and capability contracts without executing module code.",
+    "core",
+    "safe",
+    false,
+    { type: "object", properties: { query: { type: "string" }, moduleId: { type: "string", enum: moduleIdEnum }, limit: { type: "number" } }, required: ["query"] }
+  ),
+  tool("modules.read", "Read module source file", "Read a small text/code file from known module source paths only. Credential-style files and path escapes are blocked.", "core", "safe", false, safeReadSchema),
+
+  tool("memory.search", "Search MemPalace", "Search the real modules/memory MemPalace backend.", "memory", "safe", false, {
+    type: "object",
+    properties: { query: { type: "string" }, wing: { type: "string" }, room: { type: "string" }, limit: { type: "number" } },
+    required: ["query"],
+  }),
+
+  tool("coding.scan", "Scan coding workspace", "Guarded repository inventory for routes, commands, fetch callers, and module entries.", "coding"),
+  tool("coding.modules.inventory", "Inventory coding modules", "Inspect real coding module manifests, CLI entrypoints, routes, tool files, HTTP clients, and warnings under modules/coding-openhands, modules/coding-aider, and modules/coding-claw.", "coding", "safe", false, {
+    type: "object",
+    properties: { moduleId: { type: "string", enum: ["coding-openhands", "coding-aider", "coding-claw"] }, includeFiles: { type: "boolean" } },
+  }),
+  tool("coding.modules.search", "Search coding modules", "Search within the actual coding module source trees without executing code or modifying files.", "coding", "safe", false, {
+    type: "object",
+    properties: { query: { type: "string" }, moduleId: { type: "string", enum: ["coding-openhands", "coding-aider", "coding-claw"] }, limit: { type: "number" } },
+    required: ["query"],
+  }),
+  tool("coding.modules.read", "Read coding module file", "Read a small text/code file only from modules/coding-openhands, modules/coding-aider, or modules/coding-claw. Credential-style files are blocked.", "coding", "safe", false, safeReadSchema),
+  tool("coding.openhands.run", "Run OpenHands action", "Approval-gated placeholder for future OpenHands execution. Currently returns 501 until the real module contract and sandbox policy are reviewed.", "coding-openhands", "dangerous", true, approvedServiceInputSchema),
+  tool("coding.aider.run", "Run Aider action", "Approval-gated placeholder for future Aider execution. Currently returns 501 until the real CLI contract and edit policy are reviewed.", "coding-aider", "dangerous", true, approvedServiceInputSchema),
+  tool("coding.claw.run", "Run Claw action", "Approval-gated placeholder for future Claw execution. Currently returns 501 until the real module contract and sandbox policy are reviewed.", "coding-claw", "dangerous", true, approvedServiceInputSchema),
+
+  tool("defense.scan", "Run defensive scan", "Guarded defensive scan for secret risks, TODO markers, and large skipped files.", "defense"),
+
+  tool("channels.inventory", "Channels inventory", "Inspect channels module source and probe configured channel service routes.", "channels"),
+  tool("channels.inbox", "Channels inbox", "Read inbox data through the configured channels module service.", "channels", "safe", false, serviceInputSchema),
+  tool("channels.send", "Channels send", "Send outbound messages through the configured channels module service. Approval is required.", "channels", "medium", true, approvedServiceInputSchema),
+
+  tool("voice.inventory", "Voice inventory", "Inspect voice module source and probe configured voice service routes.", "voice"),
+  tool("voice.session", "Voice session", "Create or proxy a realtime voice session through the configured voice module service.", "voice", "medium", false, serviceInputSchema),
+  tool("voice.tts", "Voice TTS", "Run text-to-speech through the configured voice module service.", "voice", "medium", false, serviceInputSchema),
+  tool("voice.stt", "Voice STT", "Run speech-to-text through the configured voice module service.", "voice", "medium", false, serviceInputSchema),
+
+  tool("gateway.inventory", "Gateway inventory", "Inspect gateway module source and probe configured gateway service routes.", "gateway"),
+  tool("gateway.status", "Gateway status", "Read configured gateway service status.", "gateway", "safe", false, serviceInputSchema),
+  tool("gateway.proxy", "Gateway proxy", "Proxy a request through the configured gateway service. Approval is required.", "gateway", "medium", true, approvedServiceInputSchema),
+
+  tool("orchestration.inventory", "Orchestration inventory", "Inspect orchestration module source and probe configured agent/workflow service routes.", "orchestration"),
+  tool("orchestration.workflow.run", "Run orchestration workflow", "Dispatch a workflow to the configured orchestration module service. Approval is required.", "orchestration", "medium", true, approvedServiceInputSchema),
+
+  tool("ollama.inventory", "Ollama inventory", "Inspect Ollama module source if present and probe local Ollama API routes.", "ollama"),
+  tool("ollama.models", "List Ollama models", "List models through OLLAMA_BASE_URL /api/tags.", "ollama", "safe", false, serviceInputSchema),
+  tool("ollama.generate", "Ollama generate", "Run a direct Ollama generate request through the configured provider endpoint.", "ollama", "medium", false, serviceInputSchema),
+  tool("ollama.chat", "Ollama chat", "Run a direct Ollama chat request through the configured provider endpoint.", "ollama", "medium", false, serviceInputSchema),
 ]
 
 function getTool(name: string) {
-  return gravityCoreTools.find((tool) => tool.name === name)
-}
-
-function getBaseUrl(envName: string) {
-  return process.env[envName]?.trim().replace(/\/$/, "") || ""
+  return gravityCoreTools.find((item) => item.name === name)
 }
 
 function normalizeLimit(input: unknown, fallback = 50) {
@@ -337,42 +151,8 @@ function getString(input: unknown) {
   return typeof input === "string" ? input : ""
 }
 
-function approvalMissing(tool: GravityTool, input: Record<string, unknown>) {
-  return tool.requiresApproval && input.approved !== true
-}
-
-async function proxyTool(toolName: string, input: Record<string, unknown>) {
-  const target = proxyTargets[toolName]
-  if (!target) {
-    return { ok: false, status: 404, error: `No proxy target registered for ${toolName}.` }
-  }
-
-  const baseUrl = getBaseUrl(target.envName)
-  if (!baseUrl) {
-    return {
-      ok: false,
-      status: 503,
-      moduleId: target.moduleId,
-      error: `${target.envName} is not configured. Gravity cannot reach the ${target.moduleId} module service yet.`,
-    }
-  }
-
-  const method = getString(input.method).toUpperCase() || (input.body ? "POST" : "GET")
-  const requestPath = getString(input.path) || target.defaultPath
-  const response = await fetch(`${baseUrl}${requestPath}`, {
-    method,
-    headers: { "Content-Type": "application/json" },
-    body: method === "GET" ? undefined : JSON.stringify(input.body || {}),
-  })
-  const payload = await response.json().catch(() => ({}))
-
-  return {
-    ok: response.ok,
-    status: response.status,
-    moduleId: target.moduleId,
-    upstream: `${baseUrl}${requestPath}`,
-    payload,
-  }
+function approvalMissing(selectedTool: GravityTool, input: Record<string, unknown>) {
+  return selectedTool.requiresApproval && input.approved !== true
 }
 
 export function listGravitySkillsAndTools() {
@@ -388,9 +168,9 @@ export function listGravitySkillsAndTools() {
 export async function runGravityTool(payload: CoreToolRunInput) {
   const toolName = payload.toolName || ""
   const input = payload.input && typeof payload.input === "object" ? payload.input : {}
-  const tool = getTool(toolName)
+  const selectedTool = getTool(toolName)
 
-  if (!tool) {
+  if (!selectedTool) {
     return {
       ok: false,
       status: 404,
@@ -399,127 +179,133 @@ export async function runGravityTool(payload: CoreToolRunInput) {
     }
   }
 
-  if (approvalMissing(tool, input)) {
+  if (approvalMissing(selectedTool, input)) {
     return {
       ok: false,
       status: 403,
       approvalRequired: true,
-      tool,
-      error: `${tool.name} requires approval. Re-run with input.approved=true after operator approval.`,
+      tool: selectedTool,
+      error: `${selectedTool.name} requires approval. Re-run with input.approved=true after operator approval.`,
     }
   }
 
   try {
-    if (tool.name === "core.status") {
-      return { ok: true, status: 200, tool, data: getGravCoreStatus("standalone") }
-    }
+    if (selectedTool.name === "core.status") return { ok: true, status: 200, tool: selectedTool, data: getGravCoreStatus("standalone") }
+    if (selectedTool.name === "core.modules.list") return { ok: true, status: 200, tool: selectedTool, data: gravCoreModules }
+    if (selectedTool.name === "core.audit.read") return { ok: true, status: 200, tool: selectedTool, data: await readAuditEvents(normalizeLimit(input.limit)) }
 
-    if (tool.name === "core.modules.list") {
-      return { ok: true, status: 200, tool, data: gravCoreModules }
+    if (selectedTool.name === "modules.inventory") {
+      const result = await getUnifiedModuleInventory({ moduleId: getString(input.moduleId) || undefined, includeFiles: input.includeFiles === true, includeRoutes: input.includeRoutes !== false })
+      return { ok: result.ok, status: result.status, tool: selectedTool, data: result }
     }
-
-    if (tool.name === "core.audit.read") {
-      return { ok: true, status: 200, tool, data: await readAuditEvents(normalizeLimit(input.limit)) }
+    if (selectedTool.name === "modules.search") {
+      const result = await searchUnifiedModules({ query: getString(input.query), moduleId: getString(input.moduleId) || undefined, limit: normalizeLimit(input.limit, 30) })
+      return { ok: result.ok, status: result.status, tool: selectedTool, data: result }
     }
-
-    if (tool.name === "modules.inventory") {
-      const result = await getUnifiedModuleInventory({
-        moduleId: getString(input.moduleId) || undefined,
-        includeFiles: input.includeFiles === true,
-        includeRoutes: input.includeRoutes !== false,
-      })
-      return { ok: result.ok, status: result.status, tool, data: result }
-    }
-
-    if (tool.name === "modules.search") {
-      const result = await searchUnifiedModules({
-        query: getString(input.query),
-        moduleId: getString(input.moduleId) || undefined,
-        limit: normalizeLimit(input.limit, 30),
-      })
-      return { ok: result.ok, status: result.status, tool, data: result }
-    }
-
-    if (tool.name === "modules.read") {
+    if (selectedTool.name === "modules.read") {
       const result = await readUnifiedModuleFile({ file: getString(input.file) })
-      return { ok: result.ok, status: result.status, tool, data: result }
+      return { ok: result.ok, status: result.status, tool: selectedTool, data: result }
     }
 
-    if (tool.name === "memory.search") {
-      return {
-        ok: true,
-        status: 200,
-        tool,
-        data: await searchMempalaceMemories({
-          query: getString(input.query),
-          wing: getString(input.wing) || undefined,
-          room: getString(input.room) || undefined,
-          limit: normalizeLimit(input.limit, 5),
-        }),
-      }
+    if (selectedTool.name === "memory.search") {
+      return { ok: true, status: 200, tool: selectedTool, data: await searchMempalaceMemories({ query: getString(input.query), wing: getString(input.wing) || undefined, room: getString(input.room) || undefined, limit: normalizeLimit(input.limit, 5) }) }
     }
 
-    if (tool.name === "coding.scan") {
+    if (selectedTool.name === "coding.scan") {
       const result = await scanGravityWorkspace({ mode: "coding" })
-      return { ok: result.ok, status: result.ok ? 200 : result.status, tool, data: result }
+      return { ok: result.ok, status: result.ok ? 200 : result.status, tool: selectedTool, data: result }
+    }
+    if (selectedTool.name === "coding.modules.inventory") {
+      const result = await getCodingModuleInventory({ moduleId: getString(input.moduleId) || undefined, includeFiles: input.includeFiles === true })
+      return { ok: result.ok, status: result.status, tool: selectedTool, data: result }
+    }
+    if (selectedTool.name === "coding.modules.search") {
+      const result = await searchCodingModules({ query: getString(input.query), moduleId: getString(input.moduleId) || undefined, limit: normalizeLimit(input.limit, 20) })
+      return { ok: result.ok, status: result.status, tool: selectedTool, data: result }
+    }
+    if (selectedTool.name === "coding.modules.read") {
+      const result = await readCodingModuleFile({ file: getString(input.file) })
+      return { ok: result.ok, status: result.status, tool: selectedTool, data: result }
+    }
+    if (selectedTool.name === "coding.openhands.run") {
+      const result = getCodingExecutionUnavailable("coding-openhands", selectedTool.name)
+      return { ok: result.ok, status: result.status, tool: selectedTool, data: result, error: result.error }
+    }
+    if (selectedTool.name === "coding.aider.run") {
+      const result = getCodingExecutionUnavailable("coding-aider", selectedTool.name)
+      return { ok: result.ok, status: result.status, tool: selectedTool, data: result, error: result.error }
+    }
+    if (selectedTool.name === "coding.claw.run") {
+      const result = getCodingExecutionUnavailable("coding-claw", selectedTool.name)
+      return { ok: result.ok, status: result.status, tool: selectedTool, data: result, error: result.error }
     }
 
-    if (tool.name === "coding.modules.inventory") {
-      const result = await getCodingModuleInventory({
-        moduleId: getString(input.moduleId) || undefined,
-        includeFiles: input.includeFiles === true,
-      })
-      return { ok: result.ok, status: result.status, tool, data: result }
-    }
-
-    if (tool.name === "coding.modules.search") {
-      const result = await searchCodingModules({
-        query: getString(input.query),
-        moduleId: getString(input.moduleId) || undefined,
-        limit: normalizeLimit(input.limit, 20),
-      })
-      return { ok: result.ok, status: result.status, tool, data: result }
-    }
-
-    if (tool.name === "coding.modules.read") {
-      const result = await readCodingModuleFile({
-        file: getString(input.file),
-      })
-      return { ok: result.ok, status: result.status, tool, data: result }
-    }
-
-    if (tool.name === "coding.openhands.run") {
-      const result = getCodingExecutionUnavailable("coding-openhands", tool.name)
-      return { ok: result.ok, status: result.status, tool, data: result, error: result.error }
-    }
-
-    if (tool.name === "coding.aider.run") {
-      const result = getCodingExecutionUnavailable("coding-aider", tool.name)
-      return { ok: result.ok, status: result.status, tool, data: result, error: result.error }
-    }
-
-    if (tool.name === "coding.claw.run") {
-      const result = getCodingExecutionUnavailable("coding-claw", tool.name)
-      return { ok: result.ok, status: result.status, tool, data: result, error: result.error }
-    }
-
-    if (tool.name === "defense.scan") {
+    if (selectedTool.name === "defense.scan") {
       const result = await scanGravityWorkspace({ mode: "defense" })
-      return { ok: result.ok, status: result.ok ? 200 : result.status, tool, data: result }
+      return { ok: result.ok, status: result.ok ? 200 : result.status, tool: selectedTool, data: result }
     }
 
-    if (proxyTargets[tool.name]) {
-      const result = await proxyTool(tool.name, input)
-      return { ok: result.ok, status: result.status, tool, data: result }
+    if (selectedTool.name === "channels.inventory") return { ok: true, status: 200, tool: selectedTool, data: await getChannelsInventory() }
+    if (selectedTool.name === "channels.inbox") {
+      const result = await readChannelsInbox(input)
+      return { ok: result.ok, status: result.status, tool: selectedTool, data: result }
+    }
+    if (selectedTool.name === "channels.send") {
+      const result = await sendChannelMessage(input)
+      return { ok: result.ok, status: result.status, tool: selectedTool, data: result }
     }
 
-    return { ok: false, status: 501, tool, error: `${tool.name} is registered but not implemented yet.` }
+    if (selectedTool.name === "voice.inventory") return { ok: true, status: 200, tool: selectedTool, data: await getVoiceInventory() }
+    if (selectedTool.name === "voice.session") {
+      const result = await createVoiceSession(input)
+      return { ok: result.ok, status: result.status, tool: selectedTool, data: result }
+    }
+    if (selectedTool.name === "voice.tts") {
+      const result = await runVoiceTts(input)
+      return { ok: result.ok, status: result.status, tool: selectedTool, data: result }
+    }
+    if (selectedTool.name === "voice.stt") {
+      const result = await runVoiceStt(input)
+      return { ok: result.ok, status: result.status, tool: selectedTool, data: result }
+    }
+
+    if (selectedTool.name === "gateway.inventory") return { ok: true, status: 200, tool: selectedTool, data: await getGatewayInventory() }
+    if (selectedTool.name === "gateway.status") {
+      const result = await getGatewayStatus(input)
+      return { ok: result.ok, status: result.status, tool: selectedTool, data: result }
+    }
+    if (selectedTool.name === "gateway.proxy") {
+      const result = await proxyGatewayRequest(input)
+      return { ok: result.ok, status: result.status, tool: selectedTool, data: result }
+    }
+
+    if (selectedTool.name === "orchestration.inventory") return { ok: true, status: 200, tool: selectedTool, data: await getOrchestrationInventory() }
+    if (selectedTool.name === "orchestration.workflow.run") {
+      const result = await runOrchestrationWorkflow(input)
+      return { ok: result.ok, status: result.status, tool: selectedTool, data: result }
+    }
+
+    if (selectedTool.name === "ollama.inventory") return { ok: true, status: 200, tool: selectedTool, data: await getOllamaInventory() }
+    if (selectedTool.name === "ollama.models") {
+      const result = await listOllamaModels(input)
+      return { ok: result.ok, status: result.status, tool: selectedTool, data: result }
+    }
+    if (selectedTool.name === "ollama.generate") {
+      const result = await runOllamaGenerate(input)
+      return { ok: result.ok, status: result.status, tool: selectedTool, data: result }
+    }
+    if (selectedTool.name === "ollama.chat") {
+      const result = await runOllamaChatAdapter(input)
+      return { ok: result.ok, status: result.status, tool: selectedTool, data: result }
+    }
+
+    return { ok: false, status: 501, tool: selectedTool, error: `${selectedTool.name} is registered but not implemented yet.` }
   } catch (error) {
     return {
       ok: false,
       status: 500,
-      tool,
-      error: error instanceof Error ? error.message : `Unable to run ${tool.name}.`,
+      tool: selectedTool,
+      error: error instanceof Error ? error.message : `Unable to run ${selectedTool.name}.`,
     }
   }
 }
