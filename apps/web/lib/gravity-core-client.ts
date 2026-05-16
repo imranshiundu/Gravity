@@ -16,8 +16,28 @@ export type GravityCoreBridgeStatus = {
   }
 }
 
+export type GravityCoreChatInput = {
+  model?: string
+  messages: Array<{
+    role: "system" | "user" | "assistant" | "tool"
+    content: string
+  }>
+}
+
+export type GravityCoreChatBridgeResult = {
+  attempted: boolean
+  ok: boolean
+  status: number
+  payload?: unknown
+  error?: string
+}
+
 function getCoreBaseUrl() {
   return process.env.GRAVITY_CORE_BASE_URL?.trim().replace(/\/$/, "") || ""
+}
+
+export function isGravityCoreConfigured() {
+  return Boolean(getCoreBaseUrl())
 }
 
 function getInProcessCoreStatus(): GravityCoreBridgeStatus {
@@ -102,6 +122,53 @@ export async function getGravityCoreStatus(): Promise<GravityCoreBridgeStatus> {
         url: baseUrl,
         error: error instanceof Error ? error.message : "Unable to reach Grav Core.",
       },
+    }
+  }
+}
+
+export async function runGravityCoreChat(
+  input: GravityCoreChatInput
+): Promise<GravityCoreChatBridgeResult> {
+  const baseUrl = getCoreBaseUrl()
+
+  if (!baseUrl) {
+    return {
+      attempted: false,
+      ok: false,
+      status: 0,
+      error: "GRAVITY_CORE_BASE_URL is not set.",
+    }
+  }
+
+  try {
+    const response = await fetch(`${baseUrl}/chat`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify(input),
+      cache: "no-store",
+    })
+
+    const payload = await response.json().catch(() => ({}))
+
+    return {
+      attempted: true,
+      ok: response.ok,
+      status: response.status,
+      payload,
+      error: response.ok
+        ? undefined
+        : typeof payload?.error === "string"
+          ? payload.error
+          : `Grav Core chat failed with status ${response.status}.`,
+    }
+  } catch (error) {
+    return {
+      attempted: true,
+      ok: false,
+      status: 502,
+      error: error instanceof Error ? error.message : "Unable to reach Grav Core chat.",
     }
   }
 }
