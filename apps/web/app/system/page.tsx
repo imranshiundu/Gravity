@@ -1,15 +1,5 @@
-import { GravPageTemplate } from "@/components/grav-page-template"
-import { getRouteByPathOrThrow } from "@/lib/grav-routes"
-
-const route = getRouteByPathOrThrow("/system")
+import { SystemConnectivityDashboard } from "@/components/system-connectivity-dashboard"
 
 export default function SystemPage() {
-  return (
-    <GravPageTemplate
-      title={route.title}
-      description={route.description}
-      metrics={route.templateMetrics}
-      primaryActionLabel="Inspect host"
-    />
-  )
+  return <SystemConnectivityDashboard />
 }
