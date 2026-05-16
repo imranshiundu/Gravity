@@ -1,5 +1,7 @@
 import type { GravityChatInput, GravityChatMessage } from "@gravity/contracts"
 
+import { buildMemoryContextMessage, searchCoreMemories, summarizeMemoryUse } from "./memory.js"
+
 const DEFAULT_OLLAMA_BASE_URL = "http://127.0.0.1:11434"
 
 export type GravCoreChatResult = {
@@ -12,6 +14,7 @@ export type GravCoreChatResult = {
     provider: "ollama.local"
     model?: string
     content?: string
+    memory?: ReturnType<typeof summarizeMemoryUse>
     raw?: unknown
     error?: string
   }
@@ -52,6 +55,10 @@ function normalizeMessages(messages: unknown): GravityChatMessage[] {
 export async function runOllamaChat(input: GravityChatInput): Promise<GravCoreChatResult> {
   const model = input.model?.trim() || getDefaultModel()
   const messages = normalizeMessages(input.messages)
+  const memoryResult = await searchCoreMemories({ ...input, messages })
+  const memoryContextMessage = buildMemoryContextMessage(memoryResult)
+  const providerMessages = memoryContextMessage ? [memoryContextMessage, ...messages] : messages
+  const memorySummary = summarizeMemoryUse(memoryResult)
 
   if (!model) {
     return {
@@ -62,6 +69,7 @@ export async function runOllamaChat(input: GravityChatInput): Promise<GravCoreCh
         assistant: "Grav",
         runtime: "grav-core",
         provider: "ollama.local",
+        memory: memorySummary,
         error: "A model is required. Provide model or set GRAV_DEFAULT_MODEL.",
       },
     }
@@ -77,6 +85,7 @@ export async function runOllamaChat(input: GravityChatInput): Promise<GravCoreCh
         runtime: "grav-core",
         provider: "ollama.local",
         model,
+        memory: memorySummary,
         error: "At least one valid message is required.",
       },
     }
@@ -90,7 +99,7 @@ export async function runOllamaChat(input: GravityChatInput): Promise<GravCoreCh
       },
       body: JSON.stringify({
         model,
-        messages,
+        messages: providerMessages,
         stream: false,
       }),
     })
@@ -107,6 +116,7 @@ export async function runOllamaChat(input: GravityChatInput): Promise<GravCoreCh
           runtime: "grav-core",
           provider: "ollama.local",
           model,
+          memory: memorySummary,
           error:
             typeof payload?.error === "string"
               ? payload.error
@@ -125,6 +135,7 @@ export async function runOllamaChat(input: GravityChatInput): Promise<GravCoreCh
         runtime: "grav-core",
         provider: "ollama.local",
         model,
+        memory: memorySummary,
         content:
           typeof payload?.message?.content === "string" ? payload.message.content : "",
         raw: payload,
@@ -140,6 +151,7 @@ export async function runOllamaChat(input: GravityChatInput): Promise<GravCoreCh
         runtime: "grav-core",
         provider: "ollama.local",
         model,
+        memory: memorySummary,
         error: error instanceof Error ? error.message : "Unable to reach Ollama.",
       },
     }
