@@ -93,17 +93,27 @@ export function summarizeChatOutput(payload: unknown) {
     model?: unknown
     content?: unknown
     error?: unknown
+    memory?: {
+      enabled?: unknown
+      configured?: unknown
+      matched?: unknown
+      error?: unknown
+    }
   }
 
+  const memorySummary = candidate.memory
+    ? ` Memory: matched ${typeof candidate.memory.matched === "number" ? candidate.memory.matched : 0}; configured ${candidate.memory.configured === true ? "yes" : "no"}${typeof candidate.memory.error === "string" ? `; error ${trimText(candidate.memory.error, 100)}` : ""}.`
+    : " Memory: unavailable."
+
   if (candidate.ok === false) {
-    return `Chat failed: ${typeof candidate.error === "string" ? trimText(candidate.error) : "unknown error"}`
+    return `Chat failed: ${typeof candidate.error === "string" ? trimText(candidate.error) : "unknown error"}.${memorySummary}`
   }
 
   return `Chat completed via ${typeof candidate.provider === "string" ? candidate.provider : "unknown provider"}${
     typeof candidate.model === "string" ? ` using ${candidate.model}` : ""
   }; output preview: ${
     typeof candidate.content === "string" ? trimText(candidate.content.replace(/\s+/g, " ").trim()) : "no content"
-  }`
+  }.${memorySummary}`
 }
 
 export function getAuditContext(input: unknown) {
