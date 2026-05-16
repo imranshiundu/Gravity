@@ -2,7 +2,7 @@
 
 `services/grav-core` is the central Gravity service layer.
 
-It is intentionally small right now. Its first job is to provide one honest contract surface for module status, providers, runtime health, chat orchestration, and audit events before deeper tool execution is added.
+It is intentionally small right now. Its first job is to provide one honest contract surface for module status, providers, runtime health, chat orchestration, memory context, and audit events before deeper tool execution is added.
 
 ## Run
 
@@ -36,7 +36,7 @@ POST /chat
 
 ## Chat
 
-`POST /chat` validates the request, routes it to the Ollama provider adapter, and writes one redacted audit event for every attempt.
+`POST /chat` validates the request, retrieves relevant local memory snippets, routes the enriched request to the Ollama provider adapter, and writes one redacted audit event for every attempt.
 
 Required model source:
 
@@ -48,6 +48,56 @@ Optional Ollama URL override:
 
 ```bash
 OLLAMA_BASE_URL=http://127.0.0.1:11434
+```
+
+## Memory context
+
+Core memory injection reads a local JSON memory file and performs lightweight keyword matching against the latest user message.
+
+Preferred explicit file path:
+
+```bash
+GRAVITY_MEMORY_FILE=/absolute/path/to/memory.json
+```
+
+Alternative shared data dir:
+
+```bash
+GRAVITY_DATA_DIR=/absolute/path/to/gravity-data
+```
+
+If neither is set, Core looks at:
+
+```text
+services/grav-core/.grav-core/memory.json
+```
+
+Expected shape:
+
+```json
+[
+  {
+    "id": "memory_1",
+    "type": "project",
+    "source": "manual",
+    "content": "Gravity should route chat through Core before tools.",
+    "tags": ["gravity", "core"],
+    "createdAt": "2026-01-01T00:00:00.000Z"
+  }
+]
+```
+
+Chat responses include memory metadata:
+
+```json
+{
+  "memory": {
+    "enabled": true,
+    "configured": true,
+    "source": "/absolute/path/to/memory.json",
+    "matched": 2
+  }
+}
 ```
 
 ## Audit log
@@ -76,7 +126,7 @@ Audit events intentionally store a redacted chat input summary instead of raw fu
 - module id
 - risk level
 - redacted input summary
-- output summary
+- output summary, including memory match count
 - timestamp
 
 ## Web integration
@@ -102,8 +152,9 @@ GET  /api/core/audit?limit=50
 Connected through contracts:
 
 - assistant chat through Core when `GRAVITY_CORE_BASE_URL` is configured
+- assistant chat memory context injection through local JSON memory
 - assistant chat audit events
-- memory
+- memory save/search/forget in the web adapter
 - coding scan
 - defense scan
 
@@ -115,7 +166,7 @@ Registered but externally configured:
 
 Missing next layer:
 
-- memory retrieval injection into chat
+- full MemPalace/vector backend
 - approval gateway
 - tool execution bus
 - CLI contract binding
