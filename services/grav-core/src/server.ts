@@ -1,6 +1,12 @@
 import { createServer } from "node:http"
 
 import {
+  approveRequest,
+  executeApprovalRequest,
+  listApprovalRequests,
+  rejectRequest,
+} from "./approvals.js"
+import {
   getAuditContext,
   readAuditEvents,
   redactChatInput,
@@ -18,6 +24,13 @@ const DEFAULT_PORT = 8765
 function getPort() {
   const rawPort = Number(process.env.GRAV_CORE_PORT || DEFAULT_PORT)
   return Number.isFinite(rawPort) ? rawPort : DEFAULT_PORT
+}
+
+function getPathId(pathname: string, prefix: string, suffix = "") {
+  if (!pathname.startsWith(prefix)) return ""
+  const withoutPrefix = pathname.slice(prefix.length)
+  const withoutSuffix = suffix && withoutPrefix.endsWith(suffix) ? withoutPrefix.slice(0, -suffix.length) : withoutPrefix
+  return decodeURIComponent(withoutSuffix.replace(/^\/+|\/+$/g, ""))
 }
 
 const server = createServer(async (request, response) => {
@@ -124,6 +137,71 @@ const server = createServer(async (request, response) => {
     return
   }
 
+  if (request.method === "POST" && url.pathname.startsWith("/approvals/")) {
+    const body = await readJsonBody(request).catch(() => ({}))
+
+    if (url.pathname.endsWith("/approve")) {
+      const id = getPathId(url.pathname, "/approvals/", "/approve")
+      const result = await approveRequest({
+        id,
+        userId: typeof body?.userId === "string" ? body.userId : undefined,
+      })
+      const auditEvent = await writeAuditEvent({
+        eventType: "approval.approve",
+        summary: result.ok ? `Approval ${id} approved.` : `Approval ${id} approval failed.`,
+        moduleId: "core",
+        toolName: result.approval?.toolName,
+        risk: result.approval?.risk,
+        inputRedacted: { approvalId: id, userId: typeof body?.userId === "string" ? body.userId : undefined },
+        outputSummary: result.ok ? "Approval marked approved." : result.error || "Approval could not be approved.",
+      })
+      sendJson(response, result.status, { ...result, auditEventId: auditEvent.id })
+      return
+    }
+
+    if (url.pathname.endsWith("/reject")) {
+      const id = getPathId(url.pathname, "/approvals/", "/reject")
+      const result = await rejectRequest({
+        id,
+        userId: typeof body?.userId === "string" ? body.userId : undefined,
+        reason: typeof body?.reason === "string" ? body.reason : undefined,
+      })
+      const auditEvent = await writeAuditEvent({
+        eventType: "approval.reject",
+        summary: result.ok ? `Approval ${id} rejected.` : `Approval ${id} rejection failed.`,
+        moduleId: "core",
+        toolName: result.approval?.toolName,
+        risk: result.approval?.risk,
+        inputRedacted: { approvalId: id, userId: typeof body?.userId === "string" ? body.userId : undefined },
+        outputSummary: result.ok ? "Approval marked rejected." : result.error || "Approval could not be rejected.",
+      })
+      sendJson(response, result.status, { ...result, auditEventId: auditEvent.id })
+      return
+    }
+
+    if (url.pathname.endsWith("/execute")) {
+      const id = getPathId(url.pathname, "/approvals/", "/execute")
+      const result = await executeApprovalRequest({
+        id,
+        userId: typeof body?.userId === "string" ? body.userId : undefined,
+      })
+      const auditEvent = await writeAuditEvent({
+        eventType: "approval.execute",
+        summary: result.ok ? `Approval ${id} executed.` : `Approval ${id} execution failed.`,
+        moduleId:
+          result.result?.tool && typeof result.result.tool === "object" && "moduleId" in result.result.tool
+            ? String(result.result.tool.moduleId)
+            : "core",
+        toolName: result.approval?.toolName,
+        risk: result.approval?.risk,
+        inputRedacted: { approvalId: id, userId: typeof body?.userId === "string" ? body.userId : undefined },
+        outputSummary: result.ok ? "Approved tool executed." : result.error || result.result?.error || "Approved tool execution failed.",
+      })
+      sendJson(response, result.status, { ...result, auditEventId: auditEvent.id })
+      return
+    }
+  }
+
   if (request.method !== "GET") {
     sendJson(response, 405, {
       ok: false,
@@ -176,6 +254,18 @@ const server = createServer(async (request, response) => {
     return
   }
 
+  if (url.pathname === "/approvals") {
+    sendJson(
+      response,
+      200,
+      await listApprovalRequests({
+        status: url.searchParams.get("status") || "pending",
+        limit: Number(url.searchParams.get("limit") || 100),
+      })
+    )
+    return
+  }
+
   sendJson(response, 404, {
     ok: false,
     error: "Route not found.",
@@ -187,9 +277,13 @@ const server = createServer(async (request, response) => {
       "/skills",
       "/tools",
       "/audit",
+      "/approvals",
       "POST /chat",
       "POST /memory/search",
       "POST /tools/run",
+      "POST /approvals/:id/approve",
+      "POST /approvals/:id/reject",
+      "POST /approvals/:id/execute",
     ],
   })
 })
