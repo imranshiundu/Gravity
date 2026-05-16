@@ -22,9 +22,23 @@ export type GravityCoreChatInput = {
     role: "system" | "user" | "assistant" | "tool"
     content: string
   }>
+  context?: {
+    workspaceId?: string
+    sessionId?: string
+    userId?: string
+    modes?: string[]
+  }
 }
 
 export type GravityCoreChatBridgeResult = {
+  attempted: boolean
+  ok: boolean
+  status: number
+  payload?: unknown
+  error?: string
+}
+
+export type GravityCoreAuditBridgeResult = {
   attempted: boolean
   ok: boolean
   status: number
@@ -169,6 +183,47 @@ export async function runGravityCoreChat(
       ok: false,
       status: 502,
       error: error instanceof Error ? error.message : "Unable to reach Grav Core chat.",
+    }
+  }
+}
+
+export async function getGravityCoreAuditEvents(limit = 50): Promise<GravityCoreAuditBridgeResult> {
+  const baseUrl = getCoreBaseUrl()
+
+  if (!baseUrl) {
+    return {
+      attempted: false,
+      ok: false,
+      status: 0,
+      error: "GRAVITY_CORE_BASE_URL is not set.",
+    }
+  }
+
+  try {
+    const response = await fetch(`${baseUrl}/audit?limit=${encodeURIComponent(String(limit))}`, {
+      method: "GET",
+      cache: "no-store",
+    })
+
+    const payload = await response.json().catch(() => ({}))
+
+    return {
+      attempted: true,
+      ok: response.ok,
+      status: response.status,
+      payload,
+      error: response.ok
+        ? undefined
+        : typeof payload?.error === "string"
+          ? payload.error
+          : `Grav Core audit failed with status ${response.status}.`,
+    }
+  } catch (error) {
+    return {
+      attempted: true,
+      ok: false,
+      status: 502,
+      error: error instanceof Error ? error.message : "Unable to reach Grav Core audit.",
     }
   }
 }
