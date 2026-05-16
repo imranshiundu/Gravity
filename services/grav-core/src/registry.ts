@@ -26,6 +26,12 @@ export const gravCoreModules: GravityModule[] = [
         description: "Retrieve relevant snippets from modules/memory MemPalace and inject them into provider context.",
         status: "connected",
       },
+      {
+        id: "assistant.tools",
+        title: "Module skill/tool access",
+        description: "Expose connected module capabilities through Core /skills, /tools, and /tools/run.",
+        status: "connected",
+      },
     ],
   },
   {
@@ -58,15 +64,21 @@ export const gravCoreModules: GravityModule[] = [
   {
     id: "coding",
     name: "Coding",
-    description: "Repository and coding capability contract.",
-    sourcePath: "apps/web/app/api/coding",
+    description: "Repository and coding capability contract across OpenHands, Aider, and Claw references.",
+    sourcePath: "modules/coding-openhands, modules/coding-aider, modules/coding-claw",
     connectionState: "connected",
     capabilities: [
       {
         id: "coding.scan",
         title: "Repository scan",
-        description: "Guarded local repository inventory and route/fetch detection.",
+        description: "Guarded local repository inventory for routes, commands, fetch callers, and module entries.",
         status: "connected",
+      },
+      {
+        id: "coding.edit",
+        title: "Repository editing",
+        description: "Registered from coding modules but not executable through Core until approval/edit gates are implemented.",
+        status: "registered",
       },
     ],
   },
@@ -74,13 +86,13 @@ export const gravCoreModules: GravityModule[] = [
     id: "defense",
     name: "Defense",
     description: "Defensive security and local audit capability contract.",
-    sourcePath: "apps/web/app/api/defense",
+    sourcePath: "modules/defense",
     connectionState: "connected",
     capabilities: [
       {
         id: "defense.scan",
         title: "Defensive scan",
-        description: "Guarded local checks for secret-like assignments, TODOs, and large skipped files.",
+        description: "Guarded local checks for secret-like assignments, TODO markers, and large skipped files.",
         status: "connected",
       },
     ],
@@ -89,7 +101,7 @@ export const gravCoreModules: GravityModule[] = [
     id: "voice",
     name: "Voice",
     description: "Realtime voice session contract.",
-    sourcePath: "apps/web/app/api/voice",
+    sourcePath: "modules/voice, apps/voice-console, apps/voice-realtime-agents",
     connectionState: "registered",
     capabilities: [
       {
@@ -104,13 +116,19 @@ export const gravCoreModules: GravityModule[] = [
     id: "channels",
     name: "Channels",
     description: "External channel service adapter contract.",
-    sourcePath: "apps/web/app/api/channels",
+    sourcePath: "modules/channels",
     connectionState: "registered",
     capabilities: [
       {
         id: "channels.inbox",
         title: "Channel inbox",
         description: "Proxy inbox reads/writes to the configured channels service.",
+        status: "registered",
+      },
+      {
+        id: "channels.send",
+        title: "Channel send",
+        description: "Proxy outbound channel send calls after operator approval.",
         status: "registered",
       },
     ],
@@ -125,7 +143,28 @@ export const gravCoreModules: GravityModule[] = [
       {
         id: "gateway.status",
         title: "Gateway status",
-        description: "Registered only; route/control adapter not implemented yet.",
+        description: "Read configured gateway service status.",
+        status: "registered",
+      },
+      {
+        id: "gateway.proxy",
+        title: "Gateway proxy",
+        description: "Proxy configured gateway calls after operator approval.",
+        status: "registered",
+      },
+    ],
+  },
+  {
+    id: "orchestration",
+    name: "Orchestration",
+    description: "Agent and workflow orchestration capability contract.",
+    sourcePath: "modules/orchestration",
+    connectionState: "registered",
+    capabilities: [
+      {
+        id: "orchestration.workflow.run",
+        title: "Run workflow",
+        description: "Dispatch workflows to the configured orchestration service after operator approval.",
         status: "registered",
       },
     ],
@@ -155,6 +194,9 @@ export function getGravCoreStatus(mode: GravityCoreStatus["mode"] = "standalone"
       health: "/health",
       modules: "/modules",
       providers: "/providers",
+      skills: "/skills",
+      tools: "/tools",
+      runTool: "/tools/run",
       chat: "/chat",
       audit: "/audit",
       memorySearch: "/memory/search",
