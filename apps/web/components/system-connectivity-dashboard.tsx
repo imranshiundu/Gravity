@@ -1,3 +1,4 @@
+import { SystemAuditPanel } from "@/components/system-audit-panel"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { getAllGravityModuleStatuses } from "@/lib/gravity-module-status"
@@ -146,6 +147,8 @@ export function SystemConnectivityDashboard() {
           </div>
         </div>
       </section>
+
+      <SystemAuditPanel />
 
       <section className="grid gap-4 xl:grid-cols-2">
         {payload.modules.map((module) => (
