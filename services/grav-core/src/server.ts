@@ -1,5 +1,7 @@
 import { createServer } from "node:http"
 
+import { sendJson, readJsonBody } from "./http.js"
+import { runOllamaChat } from "./ollama.js"
 import { getGravCoreStatus, gravCoreModules, gravCoreProviders } from "./registry.js"
 
 const DEFAULT_PORT = 8765
@@ -9,16 +11,21 @@ function getPort() {
   return Number.isFinite(rawPort) ? rawPort : DEFAULT_PORT
 }
 
-function sendJson(response: import("node:http").ServerResponse, status: number, payload: unknown) {
-  response.writeHead(status, {
-    "Content-Type": "application/json; charset=utf-8",
-    "Cache-Control": "no-store",
-  })
-  response.end(`${JSON.stringify(payload, null, 2)}\n`)
-}
-
-const server = createServer((request, response) => {
+const server = createServer(async (request, response) => {
   const url = new URL(request.url || "/", `http://${request.headers.host || "localhost"}`)
+
+  if (request.method === "POST" && url.pathname === "/chat") {
+    try {
+      const result = await runOllamaChat(await readJsonBody(request))
+      sendJson(response, result.status, result.payload)
+    } catch (error) {
+      sendJson(response, 400, {
+        ok: false,
+        error: error instanceof Error ? error.message : "Invalid chat request.",
+      })
+    }
+    return
+  }
 
   if (request.method !== "GET") {
     sendJson(response, 405, {
@@ -65,7 +72,7 @@ const server = createServer((request, response) => {
   sendJson(response, 404, {
     ok: false,
     error: "Route not found.",
-    availableRoutes: ["/health", "/status", "/modules", "/providers"],
+    availableRoutes: ["/health", "/status", "/modules", "/providers", "POST /chat"],
   })
 })
 
