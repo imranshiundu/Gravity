@@ -20,13 +20,19 @@ export const gravCoreModules: GravityModule[] = [
         description: "Record redacted audit events for Core chat attempts.",
         status: "connected",
       },
+      {
+        id: "assistant.chat.memory",
+        title: "Memory-aware chat",
+        description: "Retrieve relevant local memory snippets and inject them into the provider context.",
+        status: "connected",
+      },
     ],
   },
   {
     id: "memory",
     name: "Memory",
     description: "Shared local-first memory contract.",
-    sourcePath: "apps/web/app/api/memory",
+    sourcePath: "services/grav-core/src/memory.ts, apps/web/app/api/memory",
     connectionState: "connected",
     capabilities: [
       {
@@ -38,7 +44,7 @@ export const gravCoreModules: GravityModule[] = [
       {
         id: "memory.search",
         title: "Search memory",
-        description: "Search local memory entries through Gravity-owned routes.",
+        description: "Search local memory entries through Gravity-owned routes and Core chat memory injection.",
         status: "connected",
       },
       {
