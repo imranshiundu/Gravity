@@ -41,16 +41,16 @@ export const gravityModuleStatuses: Record<
   core: {
     id: "core",
     name: "Gravity Core",
-    sourcePath: "modules/core",
-    language: "typescript",
+    sourcePath: "services/grav-core",
+    language: "typescript/node-http",
     endpoint: "/api/core/status",
-    connectionState: "missing",
-    interfaceRole: "missing",
-    capabilities: ["assistant-core-patterns", "terminal-agent-ux", "sessions", "tools"],
+    connectionState: "registered",
+    interfaceRole: "backend-only",
+    capabilities: ["module-registry", "provider-registry", "core-health", "shared-contracts"],
     adapter: {
-      implemented: false,
+      implemented: true,
       notes:
-        "The module registry names modules/core, but no Gravity Core service package or web adapter is present yet. Build services/grav-core before marking this connected.",
+        "services/grav-core now exists and exposes /health, /status, /modules, and /providers. The web route /api/core/status bridges to GRAVITY_CORE_BASE_URL when configured, otherwise it reports the in-process Gravity Web registry honestly.",
     },
   },
   memory: {
