@@ -35,6 +35,33 @@ export const gravCoreModules: GravityModule[] = [
     ],
   },
   {
+    id: "core-bindings",
+    name: "Universal Module Bindings",
+    description: "Core-owned binding layer that inventories all known modules before routing, proxying, importing, or executing anything.",
+    sourcePath: "services/grav-core/src/module-bindings.ts",
+    connectionState: "connected",
+    capabilities: [
+      {
+        id: "modules.inventory",
+        title: "Inventory all modules",
+        description: "Inspect every known module source path for manifests, route files, route hints, CLI entrypoints, tool files, config, docs, service envs, and dangerous actions.",
+        status: "connected",
+      },
+      {
+        id: "modules.search",
+        title: "Search all modules",
+        description: "Search all known module source trees without executing code or modifying files.",
+        status: "connected",
+      },
+      {
+        id: "modules.read",
+        title: "Read module file",
+        description: "Safely read small text/code files from known module source paths only. Path escapes and credential-style files are blocked.",
+        status: "connected",
+      },
+    ],
+  },
+  {
     id: "memory",
     name: "MemPalace Memory",
     description: "Memory, retrieval, and indexing module owned under modules/memory.",
