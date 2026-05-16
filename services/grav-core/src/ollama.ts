@@ -1,5 +1,6 @@
 import type { GravityChatInput, GravityChatMessage } from "@gravity/contracts"
 
+import { maybeRunAssistantToolIntent } from "./assistant-tool-use.js"
 import { buildMemoryContextMessage, searchCoreMemories, summarizeMemoryUse } from "./memory.js"
 
 const DEFAULT_OLLAMA_BASE_URL = "http://127.0.0.1:11434"
@@ -11,10 +12,12 @@ export type GravCoreChatResult = {
     ok: boolean
     assistant: "Grav"
     runtime: "grav-core"
-    provider: "ollama.local"
+    provider?: "ollama.local"
     model?: string
     content?: string
     memory?: ReturnType<typeof summarizeMemoryUse>
+    toolUse?: unknown
+    approvalRequests?: unknown[]
     raw?: unknown
     error?: string
   }
@@ -55,6 +58,31 @@ function normalizeMessages(messages: unknown): GravityChatMessage[] {
 export async function runOllamaChat(input: GravityChatInput): Promise<GravCoreChatResult> {
   const model = input.model?.trim() || getDefaultModel()
   const messages = normalizeMessages(input.messages)
+
+  if (messages.length === 0) {
+    return {
+      ok: false,
+      status: 400,
+      payload: {
+        ok: false,
+        assistant: "Grav",
+        runtime: "grav-core",
+        provider: "ollama.local",
+        model,
+        error: "At least one valid message is required.",
+      },
+    }
+  }
+
+  const toolUseResult = await maybeRunAssistantToolIntent(messages)
+  if (toolUseResult.handled && toolUseResult.payload) {
+    return {
+      ok: toolUseResult.payload.ok,
+      status: toolUseResult.status,
+      payload: toolUseResult.payload,
+    }
+  }
+
   const memoryResult = await searchCoreMemories({ ...input, messages })
   const memoryContextMessage = buildMemoryContextMessage(memoryResult)
   const providerMessages = memoryContextMessage ? [memoryContextMessage, ...messages] : messages
@@ -71,22 +99,6 @@ export async function runOllamaChat(input: GravityChatInput): Promise<GravCoreCh
         provider: "ollama.local",
         memory: memorySummary,
         error: "A model is required. Provide model or set GRAV_DEFAULT_MODEL.",
-      },
-    }
-  }
-
-  if (messages.length === 0) {
-    return {
-      ok: false,
-      status: 400,
-      payload: {
-        ok: false,
-        assistant: "Grav",
-        runtime: "grav-core",
-        provider: "ollama.local",
-        model,
-        memory: memorySummary,
-        error: "At least one valid message is required.",
       },
     }
   }
