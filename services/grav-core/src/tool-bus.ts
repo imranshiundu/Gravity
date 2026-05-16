@@ -8,6 +8,7 @@ import {
   searchCodingModules,
 } from "./coding-modules.js"
 import { searchMempalaceMemories } from "./memory.js"
+import { getUnifiedModuleInventory, readUnifiedModuleFile, searchUnifiedModules } from "./module-bindings.js"
 import { getGravCoreStatus, gravCoreModules } from "./registry.js"
 import { scanGravityWorkspace } from "./workspace-scan.js"
 
@@ -55,6 +56,20 @@ const proxyTargets: Record<string, ProxyTarget> = {
   },
 }
 
+const moduleIdEnum = [
+  "memory",
+  "coding-openhands",
+  "coding-aider",
+  "coding-claw",
+  "core-module",
+  "defense",
+  "gateway",
+  "channels",
+  "ollama",
+  "orchestration",
+  "voice",
+]
+
 export const gravityCoreTools: GravityTool[] = [
   {
     name: "core.status",
@@ -82,6 +97,51 @@ export const gravityCoreTools: GravityTool[] = [
     risk: "safe",
     requiresApproval: false,
     inputSchema: { type: "object", properties: { limit: { type: "number" } } },
+  },
+  {
+    name: "modules.inventory",
+    title: "Inventory all module bindings",
+    description:
+      "Inventory all known Gravity module source trees, manifests, routes, CLI entrypoints, tool files, service envs, and connection state without executing module code.",
+    moduleId: "core",
+    risk: "safe",
+    requiresApproval: false,
+    inputSchema: {
+      type: "object",
+      properties: {
+        moduleId: { type: "string", enum: moduleIdEnum },
+        includeFiles: { type: "boolean" },
+        includeRoutes: { type: "boolean" },
+      },
+    },
+  },
+  {
+    name: "modules.search",
+    title: "Search all module source trees",
+    description:
+      "Search known module source trees for routes, tools, CLI entrypoints, configs, and capability contracts without executing module code.",
+    moduleId: "core",
+    risk: "safe",
+    requiresApproval: false,
+    inputSchema: {
+      type: "object",
+      properties: {
+        query: { type: "string" },
+        moduleId: { type: "string", enum: moduleIdEnum },
+        limit: { type: "number" },
+      },
+      required: ["query"],
+    },
+  },
+  {
+    name: "modules.read",
+    title: "Read module source file",
+    description:
+      "Read a small text/code file from known module source paths only. Credential-style files and path escapes are blocked.",
+    moduleId: "core",
+    risk: "safe",
+    requiresApproval: false,
+    inputSchema: { type: "object", properties: { file: { type: "string" } }, required: ["file"] },
   },
   {
     name: "memory.search",
@@ -360,6 +420,29 @@ export async function runGravityTool(payload: CoreToolRunInput) {
 
     if (tool.name === "core.audit.read") {
       return { ok: true, status: 200, tool, data: await readAuditEvents(normalizeLimit(input.limit)) }
+    }
+
+    if (tool.name === "modules.inventory") {
+      const result = await getUnifiedModuleInventory({
+        moduleId: getString(input.moduleId) || undefined,
+        includeFiles: input.includeFiles === true,
+        includeRoutes: input.includeRoutes !== false,
+      })
+      return { ok: result.ok, status: result.status, tool, data: result }
+    }
+
+    if (tool.name === "modules.search") {
+      const result = await searchUnifiedModules({
+        query: getString(input.query),
+        moduleId: getString(input.moduleId) || undefined,
+        limit: normalizeLimit(input.limit, 30),
+      })
+      return { ok: result.ok, status: result.status, tool, data: result }
+    }
+
+    if (tool.name === "modules.read") {
+      const result = await readUnifiedModuleFile({ file: getString(input.file) })
+      return { ok: result.ok, status: result.status, tool, data: result }
     }
 
     if (tool.name === "memory.search") {
