@@ -11,6 +11,7 @@ import { sendJson, readJsonBody } from "./http.js"
 import { searchMempalaceMemories } from "./memory.js"
 import { runOllamaChat } from "./ollama.js"
 import { getGravCoreStatus, gravCoreModules, gravCoreProviders } from "./registry.js"
+import { listGravitySkillsAndTools, runGravityTool } from "./tool-bus.js"
 
 const DEFAULT_PORT = 8765
 
@@ -89,6 +90,40 @@ const server = createServer(async (request, response) => {
     return
   }
 
+  if (request.method === "POST" && url.pathname === "/tools/run") {
+    const body = await readJsonBody(request).catch(() => ({}))
+    const result = await runGravityTool({
+      toolName: typeof body?.toolName === "string" ? body.toolName : "",
+      input: body?.input && typeof body.input === "object" ? body.input : {},
+    })
+
+    const auditEvent = await writeAuditEvent({
+      eventType: "tool.run",
+      summary: result.ok ? `Tool ${body?.toolName || "unknown"} completed.` : `Tool ${body?.toolName || "unknown"} failed.`,
+      moduleId:
+        result.tool && typeof result.tool === "object" && "moduleId" in result.tool
+          ? String(result.tool.moduleId)
+          : "core",
+      toolName: typeof body?.toolName === "string" ? body.toolName : undefined,
+      risk:
+        result.tool && typeof result.tool === "object" && "risk" in result.tool
+          ? (result.tool.risk as "safe" | "medium" | "dangerous" | "disallowed")
+          : "safe",
+      inputRedacted: {
+        toolName: typeof body?.toolName === "string" ? body.toolName : undefined,
+        hasInput: Boolean(body?.input),
+        approved: Boolean(body?.input && typeof body.input === "object" && "approved" in body.input && body.input.approved === true),
+      },
+      outputSummary: result.ok ? "Tool runner returned success." : result.error || "Tool runner returned failure.",
+    })
+
+    sendJson(response, result.status, {
+      ...result,
+      auditEventId: auditEvent.id,
+    })
+    return
+  }
+
   if (request.method !== "GET") {
     sendJson(response, 405, {
       ok: false,
@@ -121,6 +156,11 @@ const server = createServer(async (request, response) => {
     return
   }
 
+  if (url.pathname === "/skills" || url.pathname === "/tools") {
+    sendJson(response, 200, listGravitySkillsAndTools())
+    return
+  }
+
   if (url.pathname === "/providers") {
     sendJson(response, 200, {
       ok: true,
@@ -144,9 +184,12 @@ const server = createServer(async (request, response) => {
       "/status",
       "/modules",
       "/providers",
+      "/skills",
+      "/tools",
       "/audit",
       "POST /chat",
       "POST /memory/search",
+      "POST /tools/run",
     ],
   })
 })
