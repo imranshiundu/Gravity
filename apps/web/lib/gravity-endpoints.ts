@@ -3,6 +3,13 @@ export const gravityEndpoints = {
     status: "/api/assistant/status",
     chat: "/api/assistant/chat",
   },
+  core: {
+    status: "/api/core/status",
+    skills: "/api/core/skills",
+    tools: "/api/core/tools",
+    runTool: "/api/core/tools/run",
+    audit: "/api/core/audit",
+  },
   runtime: {
     ollamaStatus: "/api/ollama/status",
     ollamaChat: "/api/ollama/chat",
