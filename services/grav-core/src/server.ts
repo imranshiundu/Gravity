@@ -8,6 +8,7 @@ import {
   writeAuditEvent,
 } from "./audit.js"
 import { sendJson, readJsonBody } from "./http.js"
+import { searchMempalaceMemories } from "./memory.js"
 import { runOllamaChat } from "./ollama.js"
 import { getGravCoreStatus, gravCoreModules, gravCoreProviders } from "./registry.js"
 
@@ -69,6 +70,25 @@ const server = createServer(async (request, response) => {
     return
   }
 
+  if (request.method === "POST" && url.pathname === "/memory/search") {
+    const body = await readJsonBody(request).catch(() => ({}))
+    const result = await searchMempalaceMemories({
+      query: typeof body?.query === "string" ? body.query : "",
+      wing: typeof body?.wing === "string" ? body.wing : undefined,
+      room: typeof body?.room === "string" ? body.room : undefined,
+      limit: typeof body?.limit === "number" ? body.limit : undefined,
+    })
+
+    sendJson(response, result.ok ? 200 : 503, {
+      ok: result.ok,
+      service: "grav-core",
+      module: "memory",
+      timestamp: new Date().toISOString(),
+      ...result,
+    })
+    return
+  }
+
   if (request.method !== "GET") {
     sendJson(response, 405, {
       ok: false,
@@ -126,6 +146,7 @@ const server = createServer(async (request, response) => {
       "/providers",
       "/audit",
       "POST /chat",
+      "POST /memory/search",
     ],
   })
 })
