@@ -64,7 +64,7 @@ export const gravCoreModules: GravityModule[] = [
   {
     id: "coding",
     name: "Coding",
-    description: "Repository and coding capability contract across OpenHands, Aider, and Claw references.",
+    description: "Repository and coding capability contract across OpenHands, Aider, and Claw modules.",
     sourcePath: "modules/coding-openhands, modules/coding-aider, modules/coding-claw",
     connectionState: "connected",
     capabilities: [
@@ -75,9 +75,39 @@ export const gravCoreModules: GravityModule[] = [
         status: "connected",
       },
       {
-        id: "coding.edit",
-        title: "Repository editing",
-        description: "Registered from coding modules but not executable through Core until approval/edit gates are implemented.",
+        id: "coding.modules.inventory",
+        title: "Coding module inventory",
+        description: "Inventories the real OpenHands, Aider, and Claw module source trees for manifests, CLI entrypoints, routes, tools, and HTTP clients.",
+        status: "connected",
+      },
+      {
+        id: "coding.modules.search",
+        title: "Search coding modules",
+        description: "Searches the real coding module source trees without executing code or modifying files.",
+        status: "connected",
+      },
+      {
+        id: "coding.modules.read",
+        title: "Read coding module file",
+        description: "Reads small text/code files from coding modules only; credential-style files and workspace escape paths are blocked.",
+        status: "connected",
+      },
+      {
+        id: "coding.openhands.run",
+        title: "OpenHands execution",
+        description: "Registered as dangerous and approval-gated, but intentionally unavailable until the actual execution contract and sandbox policy are reviewed.",
+        status: "registered",
+      },
+      {
+        id: "coding.aider.run",
+        title: "Aider execution",
+        description: "Registered as dangerous and approval-gated, but intentionally unavailable until the CLI/edit contract and rollback policy are reviewed.",
+        status: "registered",
+      },
+      {
+        id: "coding.claw.run",
+        title: "Claw execution",
+        description: "Registered as dangerous and approval-gated, but intentionally unavailable until the module contract and sandbox policy are reviewed.",
         status: "registered",
       },
     ],
