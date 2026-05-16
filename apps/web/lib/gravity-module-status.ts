@@ -50,22 +50,22 @@ export const gravityModuleStatuses: Record<
     adapter: {
       implemented: true,
       notes:
-        "services/grav-core now exists and exposes /health, /status, /modules, and /providers. The web route /api/core/status bridges to GRAVITY_CORE_BASE_URL when configured, otherwise it reports the in-process Gravity Web registry honestly.",
+        "services/grav-core now exists and exposes /health, /status, /modules, /providers, /audit, /chat, and /memory/search. The web route /api/core/status bridges to GRAVITY_CORE_BASE_URL when configured, otherwise it reports the in-process Gravity Web registry honestly.",
     },
   },
   memory: {
     id: "memory",
-    name: "Memory",
-    sourcePath: "modules/memory",
-    language: "typescript adapter over local store; python module still available as source",
-    endpoint: "/api/memory/status",
+    name: "MemPalace Memory",
+    sourcePath: "modules/memory/mempalace",
+    language: "python module bridged through services/grav-core",
+    endpoint: "/api/memory/status, /api/memory/search, Core POST /memory/search",
     connectionState: "connected",
     interfaceRole: "backend-only",
-    capabilities: ["memory", "retrieval", "save", "forget", "local-json-store"],
+    capabilities: ["memory", "retrieval", "indexing", "mempalace-search", "chat-context-injection"],
     adapter: {
       implemented: true,
       notes:
-        "Gravity Web now exposes /api/memory/save, /api/memory/search, and /api/memory/forget through a local JSON adapter. This is working as a Gravity-owned contract, but it is not yet the full MemPalace vector backend.",
+        "Gravity now routes memory retrieval through the actual modules/memory MemPalace module when GRAVITY_CORE_BASE_URL is configured. Core calls mempalace.searcher.search_memories and injects those results into chat context. The web local JSON store is now only an honest fallback when Core is not configured.",
     },
   },
   channels: {
