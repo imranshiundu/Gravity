@@ -14,6 +14,12 @@ export const gravCoreModules: GravityModule[] = [
         description: "Route user messages through Core orchestration before provider execution.",
         status: "connected",
       },
+      {
+        id: "assistant.chat.audit",
+        title: "Chat audit events",
+        description: "Record redacted audit events for Core chat attempts.",
+        status: "connected",
+      },
     ],
   },
   {
@@ -144,6 +150,7 @@ export function getGravCoreStatus(mode: GravityCoreStatus["mode"] = "standalone"
       modules: "/modules",
       providers: "/providers",
       chat: "/chat",
+      audit: "/audit",
     },
   }
 }
