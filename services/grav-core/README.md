@@ -62,12 +62,36 @@ Connected safe tools:
 core.status
 core.modules.list
 core.audit.read
+modules.inventory
+modules.search
+modules.read
 memory.search
 coding.scan
 coding.modules.inventory
 coding.modules.search
 coding.modules.read
 defense.scan
+channels.inventory
+voice.inventory
+gateway.inventory
+orchestration.inventory
+ollama.inventory
+ollama.models
+```
+
+Service adapter tools:
+
+```text
+channels.inbox                 -> GRAVITY_CHANNELS_BASE_URL
+channels.send                  -> GRAVITY_CHANNELS_BASE_URL + operator approval
+voice.session                  -> GRAVITY_VOICE_BASE_URL
+voice.tts                      -> GRAVITY_VOICE_BASE_URL
+voice.stt                      -> GRAVITY_VOICE_BASE_URL
+gateway.status                 -> GRAVITY_GATEWAY_BASE_URL
+gateway.proxy                  -> GRAVITY_GATEWAY_BASE_URL + operator approval
+orchestration.workflow.run     -> GRAVITY_ORCHESTRATION_BASE_URL + operator approval
+ollama.generate                -> OLLAMA_BASE_URL
+ollama.chat                    -> OLLAMA_BASE_URL
 ```
 
 Registered coding execution tools:
@@ -76,17 +100,6 @@ Registered coding execution tools:
 coding.openhands.run -> approval required, returns 501 until OpenHands contract/sandbox is reviewed
 coding.aider.run     -> approval required, returns 501 until Aider CLI/edit contract is reviewed
 coding.claw.run      -> approval required, returns 501 until Claw contract/sandbox is reviewed
-```
-
-Registered proxy tools that require module service URLs:
-
-```text
-channels.inbox       -> GRAVITY_CHANNELS_BASE_URL
-channels.send        -> GRAVITY_CHANNELS_BASE_URL + operator approval
-voice.session        -> GRAVITY_VOICE_BASE_URL
-gateway.status       -> GRAVITY_GATEWAY_BASE_URL
-gateway.proxy        -> GRAVITY_GATEWAY_BASE_URL + operator approval
-orchestration.workflow.run -> GRAVITY_ORCHESTRATION_BASE_URL + operator approval
 ```
 
 Approval-gated tools must be called with explicit operator approval:
@@ -166,7 +179,7 @@ Chat responses include memory metadata:
 
 ## Guarded local scans
 
-The coding and defense tools use guarded workspace readers.
+The coding, defense, module inventory, and module read tools use guarded workspace readers.
 
 Required:
 
@@ -178,7 +191,7 @@ GRAVITY_WORKSPACE_ROOT=/absolute/path/to/Gravity
 Then:
 
 ```json
-{ "toolName": "coding.scan", "input": {} }
+{ "toolName": "modules.inventory", "input": { "includeRoutes": true } }
 ```
 
 or:
@@ -187,9 +200,113 @@ or:
 { "toolName": "defense.scan", "input": {} }
 ```
 
+`modules.inventory` inventories real module source trees, route hints, CLI entrypoints, manifests, configs, docs, service envs, and dangerous actions.
+
 `coding.scan` inventories routes, fetch callers, command entry points, module entries, TODOs, and secret-like assignments.
 
 `defense.scan` returns only the defensive subset: secret-like assignments, TODO markers, and large skipped files.
+
+## Service adapters
+
+Core now has dedicated adapters under:
+
+```text
+services/grav-core/src/adapters
+```
+
+Adapters do two jobs:
+
+1. Inventory module source through `modules.inventory`.
+2. Probe/proxy the configured module service only when the proper env URL exists.
+
+The shared adapter helper rejects unsafe paths. It only accepts relative service paths such as `/status`; it refuses absolute URLs, `//`, and `..` path escapes so Core does not become an open proxy.
+
+### Channels
+
+Env:
+
+```bash
+GRAVITY_CHANNELS_BASE_URL=http://127.0.0.1:<channels-port>
+```
+
+Tools:
+
+```text
+channels.inventory
+channels.inbox
+channels.send
+```
+
+`channels.send` is approval-gated.
+
+### Voice
+
+Env:
+
+```bash
+GRAVITY_VOICE_BASE_URL=http://127.0.0.1:<voice-port>
+```
+
+Tools:
+
+```text
+voice.inventory
+voice.session
+voice.tts
+voice.stt
+```
+
+### Gateway
+
+Env:
+
+```bash
+GRAVITY_GATEWAY_BASE_URL=http://127.0.0.1:<gateway-port>
+```
+
+Tools:
+
+```text
+gateway.inventory
+gateway.status
+gateway.proxy
+```
+
+`gateway.proxy` is approval-gated.
+
+### Orchestration
+
+Env:
+
+```bash
+GRAVITY_ORCHESTRATION_BASE_URL=http://127.0.0.1:<orchestration-port>
+```
+
+Tools:
+
+```text
+orchestration.inventory
+orchestration.workflow.run
+```
+
+`orchestration.workflow.run` is approval-gated.
+
+### Ollama
+
+Env:
+
+```bash
+OLLAMA_BASE_URL=http://127.0.0.1:11434
+```
+
+Tools:
+
+```text
+ollama.inventory
+ollama.models
+ollama.generate
+ollama.chat
+```
 
 ## Coding module binding
 
@@ -304,7 +421,7 @@ POST /api/core/chat
 GET  /api/core/audit?limit=50
 ```
 
-The existing web tool runner bridge `POST /api/core/tools/run` automatically forwards the new coding module tools to Core when `GRAVITY_CORE_BASE_URL` is configured.
+The existing web tool runner bridge `POST /api/core/tools/run` automatically forwards these tools to Core when `GRAVITY_CORE_BASE_URL` is configured.
 
 ## Current truth
 
@@ -315,24 +432,26 @@ Connected through Core:
 - Core tool/skill listing
 - Core tool runner
 - Core audit events
+- universal module inventory/search/read
 - guarded coding scan
 - guarded coding module inventory/search/read for OpenHands, Aider, and Claw
 - guarded defense scan
 - MemPalace search
+- service adapter inventory for channels, voice, gateway, orchestration, and Ollama
+- Ollama model listing when `OLLAMA_BASE_URL` is configured
 
 Registered but externally configured:
 
 - channels inbox/send through `GRAVITY_CHANNELS_BASE_URL`
-- voice session through `GRAVITY_VOICE_BASE_URL`
+- voice session/TTS/STT through `GRAVITY_VOICE_BASE_URL`
 - gateway status/proxy through `GRAVITY_GATEWAY_BASE_URL`
 - orchestration workflow dispatch through `GRAVITY_ORCHESTRATION_BASE_URL`
+- Ollama generate/chat through `OLLAMA_BASE_URL`
 
 Still missing deeper module binding:
 
 - direct Aider/OpenHands/Claw execution after contract review
 - coding sandbox, command allowlist, rollback, and write-policy enforcement
-- direct channels plugin/action inventory
-- direct voice STT/TTS route mapping
-- gateway route-control adapter
-- orchestration workflow inventory
-- CLI contract binding for non-coding modules
+- module-native service startup commands
+- assistant automatic tool selection and approval request flow
+- system UI route matrix for all module adapters
