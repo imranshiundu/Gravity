@@ -2,7 +2,7 @@
 
 `services/grav-core` is the central Gravity service layer.
 
-It is intentionally small right now. Its first job is to provide one honest contract surface for module status, providers, runtime health, chat orchestration, memory context, and audit events before deeper tool execution is added.
+Grav is the unified framework/interface. The folders under `modules/` are capability backends. Core exposes those backend capabilities as Gravity skills, tools, thinking context, and system routes without pretending every module is already fully merged.
 
 ## Run
 
@@ -23,20 +23,79 @@ Override port:
 GRAV_CORE_PORT=8765 pnpm core:dev
 ```
 
-## Routes
+## Core routes
 
 ```text
 GET  /health
 GET  /status
 GET  /modules
 GET  /providers
+GET  /skills
+GET  /tools
 GET  /audit?limit=50
 POST /chat
+POST /memory/search
+POST /tools/run
+```
+
+## Module skill/tool contract
+
+`GET /skills` and `GET /tools` return the Gravity module registry plus the tools Core can expose.
+
+`POST /tools/run` executes one tool through the Core bus.
+
+Example:
+
+```json
+{
+  "toolName": "memory.search",
+  "input": {
+    "query": "Gravity routing",
+    "limit": 5
+  }
+}
+```
+
+Connected tools:
+
+```text
+core.status
+core.modules.list
+core.audit.read
+memory.search
+coding.scan
+defense.scan
+```
+
+Registered proxy tools that require module service URLs:
+
+```text
+channels.inbox       -> GRAVITY_CHANNELS_BASE_URL
+channels.send        -> GRAVITY_CHANNELS_BASE_URL + operator approval
+voice.session        -> GRAVITY_VOICE_BASE_URL
+gateway.status       -> GRAVITY_GATEWAY_BASE_URL
+gateway.proxy        -> GRAVITY_GATEWAY_BASE_URL + operator approval
+orchestration.workflow.run -> GRAVITY_ORCHESTRATION_BASE_URL + operator approval
+```
+
+Approval-gated tools must be called with explicit operator approval:
+
+```json
+{
+  "toolName": "channels.send",
+  "input": {
+    "approved": true,
+    "body": {
+      "to": "example",
+      "message": "Approved message"
+    }
+  }
+}
 ```
 
 ## Chat
 
-`POST /chat` validates the request, retrieves relevant local memory snippets, routes the enriched request to the Ollama provider adapter, and writes one redacted audit event for every attempt.
+`POST /chat` validates the request, searches the real `modules/memory` MemPalace backend, injects relevant memory drawer results into provider context, routes the enriched request to the Ollama provider adapter, and writes one redacted audit event for every attempt.
 
 Required model source:
 
@@ -50,41 +109,33 @@ Optional Ollama URL override:
 OLLAMA_BASE_URL=http://127.0.0.1:11434
 ```
 
-## Memory context
+## MemPalace memory context
 
-Core memory injection reads a local JSON memory file and performs lightweight keyword matching against the latest user message.
-
-Preferred explicit file path:
-
-```bash
-GRAVITY_MEMORY_FILE=/absolute/path/to/memory.json
-```
-
-Alternative shared data dir:
-
-```bash
-GRAVITY_DATA_DIR=/absolute/path/to/gravity-data
-```
-
-If neither is set, Core looks at:
+Core memory injection uses the existing module:
 
 ```text
-services/grav-core/.grav-core/memory.json
+modules/memory/mempalace/searcher.py
 ```
 
-Expected shape:
+Core calls:
 
-```json
-[
-  {
-    "id": "memory_1",
-    "type": "project",
-    "source": "manual",
-    "content": "Gravity should route chat through Core before tools.",
-    "tags": ["gravity", "core"],
-    "createdAt": "2026-01-01T00:00:00.000Z"
-  }
-]
+```text
+mempalace.searcher.search_memories()
+```
+
+Required or useful env:
+
+```bash
+GRAVITY_REPO_ROOT=/absolute/path/to/Gravity
+MEMPALACE_PALACE_PATH=/absolute/path/to/palace
+GRAVITY_MEMPALACE_PYTHON=python3
+```
+
+Optional scoping:
+
+```bash
+GRAVITY_MEMPALACE_WING=some-wing
+GRAVITY_MEMPALACE_ROOM=some-room
 ```
 
 Chat responses include memory metadata:
@@ -94,11 +145,40 @@ Chat responses include memory metadata:
   "memory": {
     "enabled": true,
     "configured": true,
-    "source": "/absolute/path/to/memory.json",
+    "backend": "mempalace",
+    "source": "modules/memory/mempalace.searcher.search_memories",
+    "palacePath": "/absolute/path/to/palace",
     "matched": 2
   }
 }
 ```
+
+## Guarded local scans
+
+The coding and defense tools use a guarded workspace scanner.
+
+Required:
+
+```bash
+GRAVITY_ENABLE_LOCAL_TOOLS=true
+GRAVITY_WORKSPACE_ROOT=/absolute/path/to/Gravity
+```
+
+Then:
+
+```json
+{ "toolName": "coding.scan", "input": {} }
+```
+
+or:
+
+```json
+{ "toolName": "defense.scan", "input": {} }
+```
+
+`coding.scan` inventories routes, fetch callers, command entry points, module entries, TODOs, and secret-like assignments.
+
+`defense.scan` returns only the defensive subset: secret-like assignments, TODO markers, and large skipped files.
 
 ## Audit log
 
@@ -116,18 +196,7 @@ Override location:
 GRAV_CORE_DATA_DIR=/absolute/path/to/core-data
 ```
 
-Audit events intentionally store a redacted chat input summary instead of raw full chat transcripts. They include:
-
-- workspace id
-- session id
-- user id when provided
-- mode
-- event type
-- module id
-- risk level
-- redacted input summary
-- output summary, including memory match count
-- timestamp
+Audit events intentionally store redacted input summaries instead of raw full chat transcripts. Tool runs also write audit events.
 
 ## Web integration
 
@@ -143,30 +212,39 @@ Web bridge routes:
 
 ```text
 GET  /api/core/status
+GET  /api/core/skills
+GET  /api/core/tools
+POST /api/core/tools/run
 POST /api/core/chat
 GET  /api/core/audit?limit=50
 ```
 
 ## Current truth
 
-Connected through contracts:
+Connected through Core:
 
 - assistant chat through Core when `GRAVITY_CORE_BASE_URL` is configured
-- assistant chat memory context injection through local JSON memory
-- assistant chat audit events
-- memory save/search/forget in the web adapter
-- coding scan
-- defense scan
+- assistant chat memory context injection through `modules/memory` MemPalace
+- Core tool/skill listing
+- Core tool runner
+- Core audit events
+- guarded coding scan
+- guarded defense scan
+- MemPalace search
 
 Registered but externally configured:
 
-- channels
-- voice
-- gateway
+- channels inbox/send through `GRAVITY_CHANNELS_BASE_URL`
+- voice session through `GRAVITY_VOICE_BASE_URL`
+- gateway status/proxy through `GRAVITY_GATEWAY_BASE_URL`
+- orchestration workflow dispatch through `GRAVITY_ORCHESTRATION_BASE_URL`
 
-Missing next layer:
+Still missing deeper module binding:
 
-- full MemPalace/vector backend
-- approval gateway
-- tool execution bus
+- real coding edit/run actions behind approval gates
+- direct Aider/OpenHands/Claw execution contracts
+- direct channels plugin/action inventory
+- direct voice STT/TTS route mapping
+- gateway route-control adapter
+- orchestration workflow inventory
 - CLI contract binding
