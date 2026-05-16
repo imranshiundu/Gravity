@@ -30,6 +30,13 @@ export type GravityCoreChatInput = {
   }
 }
 
+export type GravityCoreMemorySearchInput = {
+  query?: string
+  wing?: string
+  room?: string
+  limit?: number
+}
+
 export type GravityCoreChatBridgeResult = {
   attempted: boolean
   ok: boolean
@@ -39,6 +46,14 @@ export type GravityCoreChatBridgeResult = {
 }
 
 export type GravityCoreAuditBridgeResult = {
+  attempted: boolean
+  ok: boolean
+  status: number
+  payload?: unknown
+  error?: string
+}
+
+export type GravityCoreMemoryBridgeResult = {
   attempted: boolean
   ok: boolean
   status: number
@@ -183,6 +198,53 @@ export async function runGravityCoreChat(
       ok: false,
       status: 502,
       error: error instanceof Error ? error.message : "Unable to reach Grav Core chat.",
+    }
+  }
+}
+
+export async function searchGravityCoreMemory(
+  input: GravityCoreMemorySearchInput
+): Promise<GravityCoreMemoryBridgeResult> {
+  const baseUrl = getCoreBaseUrl()
+
+  if (!baseUrl) {
+    return {
+      attempted: false,
+      ok: false,
+      status: 0,
+      error: "GRAVITY_CORE_BASE_URL is not set.",
+    }
+  }
+
+  try {
+    const response = await fetch(`${baseUrl}/memory/search`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify(input),
+      cache: "no-store",
+    })
+
+    const payload = await response.json().catch(() => ({}))
+
+    return {
+      attempted: true,
+      ok: response.ok,
+      status: response.status,
+      payload,
+      error: response.ok
+        ? undefined
+        : typeof payload?.error === "string"
+          ? payload.error
+          : `Grav Core memory search failed with status ${response.status}.`,
+    }
+  } catch (error) {
+    return {
+      attempted: true,
+      ok: false,
+      status: 502,
+      error: error instanceof Error ? error.message : "Unable to reach Grav Core memory search.",
     }
   }
 }
