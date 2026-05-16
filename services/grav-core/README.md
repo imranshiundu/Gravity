@@ -119,9 +119,73 @@ Approval-gated tools must be called with explicit operator approval:
 
 ## Chat
 
-`POST /chat` validates the request, searches the real `modules/memory` MemPalace backend, injects relevant memory drawer results into provider context, routes the enriched request to the Ollama provider adapter, and writes one redacted audit event for every attempt.
+`POST /chat` validates the request, checks whether the latest user message maps to a safe Core tool intent, and then either runs the safe tool, returns an approval request for risky tools, or continues into memory-backed Ollama chat.
 
-Required model source:
+The chat path is intentionally conservative:
+
+1. Normalize messages.
+2. Detect deterministic tool intent.
+3. Execute only tools marked `safe` and not `requiresApproval`.
+4. Return `approvalRequests` for risky or approval-gated tools.
+5. If no tool intent is detected, search MemPalace and call Ollama.
+6. Write one redacted audit event for every attempt.
+
+Deterministic tool examples:
+
+```text
+show all module routes         -> modules.inventory
+show core audit events         -> core.audit.read
+check Gravity Core status      -> core.status
+search memory for routing      -> memory.search
+list Ollama models             -> ollama.models
+check gateway status           -> gateway.status
+scan defense risks             -> defense.scan
+inspect coding modules         -> coding.modules.inventory
+send a channel message         -> approval request for channels.send
+run orchestration workflow     -> approval request for orchestration.workflow.run
+run Aider/OpenHands/Claw       -> approval request, then still 501 until sandbox contract is reviewed
+```
+
+Tool-use chat responses include:
+
+```json
+{
+  "ok": true,
+  "assistant": "Grav",
+  "runtime": "grav-core",
+  "mode": "tool-use",
+  "content": "modules.inventory completed. I attached the structured tool result in toolUse.result so the UI can render the details.",
+  "toolUse": {
+    "strategy": "deterministic-intent",
+    "intent": "module-inventory",
+    "toolName": "modules.inventory",
+    "executed": true,
+    "requiresApproval": false,
+    "result": {}
+  }
+}
+```
+
+Approval responses include:
+
+```json
+{
+  "ok": false,
+  "assistant": "Grav",
+  "runtime": "grav-core",
+  "mode": "tool-use",
+  "approvalRequests": [
+    {
+      "toolName": "channels.send",
+      "risk": "medium",
+      "summary": "Approval required for channels.send",
+      "proposedInput": {}
+    }
+  ]
+}
+```
+
+Required model source for normal model chat:
 
 ```bash
 GRAV_DEFAULT_MODEL=<your-ollama-model>
@@ -400,6 +464,8 @@ GRAV_CORE_DATA_DIR=/absolute/path/to/core-data
 
 Audit events intentionally store redacted input summaries instead of raw full chat transcripts. Tool runs also write audit events.
 
+Chat-triggered tool use is summarized in audit output with the selected tool, intent, execution state, approval state, and approval count.
+
 ## Web integration
 
 Set this in `apps/web` runtime env when the service is running:
@@ -428,6 +494,8 @@ The existing web tool runner bridge `POST /api/core/tools/run` automatically for
 Connected through Core:
 
 - assistant chat through Core when `GRAVITY_CORE_BASE_URL` is configured
+- deterministic assistant tool-use routing for safe Core tools
+- assistant approval-request responses for risky/approval-gated tools
 - assistant chat memory context injection through `modules/memory` MemPalace
 - Core tool/skill listing
 - Core tool runner
@@ -453,5 +521,5 @@ Still missing deeper module binding:
 - direct Aider/OpenHands/Claw execution after contract review
 - coding sandbox, command allowlist, rollback, and write-policy enforcement
 - module-native service startup commands
-- assistant automatic tool selection and approval request flow
-- system UI route matrix for all module adapters
+- assistant multi-step tool planning beyond deterministic single-tool intent
+- UI approval queue for approvalRequests
