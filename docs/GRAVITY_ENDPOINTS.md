@@ -15,6 +15,7 @@ apps/web
   -> /api/assistant/chat
   -> services/grav-core POST /chat when GRAVITY_CORE_BASE_URL is configured
   -> direct Ollama fallback when Core is not configured
+  -> services/grav-core writes redacted audit event for each Core chat attempt
 ```
 
 The old engine-specific routes still exist for runtime inspection:
@@ -66,6 +67,7 @@ GET  /health
 GET  /status
 GET  /modules
 GET  /providers
+GET  /audit?limit=50
 POST /chat
 ```
 
@@ -74,11 +76,14 @@ Web bridge routes:
 ```text
 GET  /api/core/status
 POST /api/core/chat
+GET  /api/core/audit?limit=50
 ```
 
 If `GRAVITY_CORE_BASE_URL` is missing, `/api/core/status` reports `mode: "in-process"`. If the URL is set but unreachable, it reports `mode: "unavailable"` and returns `503`.
 
 `/api/assistant/chat` now uses Core first when `GRAVITY_CORE_BASE_URL` is configured. If Core is not configured, it uses the direct Ollama route. If Core is configured but failing, it returns the Core failure honestly instead of silently pretending Core worked.
+
+`/chat` writes redacted JSONL audit events to `${GRAV_CORE_DATA_DIR:-services/grav-core/.grav-core}/audit-events.jsonl`. The audit entry stores request shape, message count, roles, the last user-message preview, output summary, session context, and event id. It does not store full raw transcripts.
 
 ## Interface rule
 
@@ -92,7 +97,7 @@ If `GRAVITY_CORE_BASE_URL` is missing, `/api/core/status` reports `mode: "in-pro
 
 ## Implemented endpoint contract
 
-### Assistant and runtime
+### Assistant, runtime, and audit
 
 ```text
 GET  /api/assistant/status    -> Grav + Gravity Web + Ollama runtime status
@@ -100,6 +105,7 @@ POST /api/assistant/chat      -> Grav chat contract; Core-backed when configured
 GET  /api/ollama/status       -> Ollama diagnostic status
 POST /api/ollama/chat         -> Ollama diagnostic chat bridge
 POST /api/core/chat           -> explicit web-to-Core chat bridge
+GET  /api/core/audit?limit=50 -> explicit web-to-Core audit bridge
 ```
 
 ### Module status
@@ -176,7 +182,7 @@ or direct OpenAI Realtime session creation when `OPENAI_API_KEY` is available.
 
 ```text
 /api/assistant/*   -> Grav conversation contract
-/api/core/*        -> Gravity core status and orchestration
+/api/core/*        -> Gravity core status, audit, and orchestration
 /api/ollama/*      -> engine diagnostics and runtime bridge
 /api/memory/*      -> memory save/search/forget
 /api/coding/*      -> coding actions and repo tools
@@ -237,12 +243,13 @@ Right now:
 
 - `apps/web` talks to Core for assistant chat when `GRAVITY_CORE_BASE_URL` is configured.
 - Core talks to Ollama through `OLLAMA_BASE_URL` and `GRAV_DEFAULT_MODEL`.
+- Core writes a redacted audit event for each `/chat` attempt.
 - If Core is not configured, `apps/web` still uses the direct Ollama route.
-- Core does not yet execute approvals, tools, memory retrieval, or audit events in the chat path.
+- Core does not yet execute approvals, tools, or memory retrieval in the chat path.
 
 ## Current truth about module integration
 
-- Core now exists as `services/grav-core`, exposes `/chat`, and has a web bridge through `/api/core/chat` and `/api/core/status`.
+- Core now exists as `services/grav-core`, exposes `/chat` and `/audit`, and has web bridges through `/api/core/chat`, `/api/core/audit`, and `/api/core/status`.
 - Memory has a working Gravity-owned local adapter.
 - Coding and defense have guarded local scan adapters.
 - Channels has an honest proxy adapter, but needs `GRAVITY_CHANNELS_BASE_URL`.
@@ -251,9 +258,9 @@ Right now:
 
 ## Next endpoint work
 
-1. Add Core audit events for chat and tool-capability calls.
+1. Add a Core audit/events panel in the `/system` page.
 2. Replace the local JSON memory adapter with a MemPalace/vector adapter while keeping the same `/api/memory/*` contract.
 3. Add safe coding edit/run endpoints with approval gating.
 4. Add channel send/plugin endpoints behind `GRAVITY_CHANNELS_BASE_URL`.
 5. Add gateway proxy/control endpoints behind `GRAVITY_GATEWAY_BASE_URL`.
-6. Add CLI commands that read `/api/core/status`, `/api/modules/status`, and guarded scan endpoints.
+6. Add CLI commands that read `/api/core/status`, `/api/modules/status`, `/api/core/audit`, and guarded scan endpoints.
