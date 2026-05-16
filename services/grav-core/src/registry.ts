@@ -5,13 +5,13 @@ export const gravCoreModules: GravityModule[] = [
     id: "assistant",
     name: "Grav Assistant",
     description: "Conversation contract and operator-facing assistant surface.",
-    sourcePath: "apps/web/app/api/assistant",
+    sourcePath: "services/grav-core/src/ollama.ts",
     connectionState: "connected",
     capabilities: [
       {
         id: "assistant.chat",
         title: "Assistant chat",
-        description: "Route user messages through Gravity-owned assistant contracts.",
+        description: "Route user messages through Core orchestration before provider execution.",
         status: "connected",
       },
     ],
@@ -125,7 +125,7 @@ export const gravCoreProviders: GravityModelProvider[] = [
     id: "ollama.local",
     name: "Ollama Local",
     kind: "local",
-    statusEndpoint: "/api/ollama/status",
+    statusEndpoint: "/providers",
   },
 ]
 
@@ -143,6 +143,7 @@ export function getGravCoreStatus(mode: GravityCoreStatus["mode"] = "standalone"
       health: "/health",
       modules: "/modules",
       providers: "/providers",
+      chat: "/chat",
     },
   }
 }
