@@ -1,7 +1,8 @@
 import { NextResponse } from "next/server"
 
-import { getGravityModuleStatus } from "@/lib/gravity-module-status"
+import { getGravityCoreStatus } from "@/lib/gravity-core-client"
 
 export async function GET() {
-  return NextResponse.json(getGravityModuleStatus("core"))
+  const status = await getGravityCoreStatus()
+  return NextResponse.json(status, { status: status.ok ? 200 : 503 })
 }
