@@ -1,5 +1,6 @@
-import type { GravityApprovalRequest, GravityChatMessage, GravityTool } from "@gravity/contracts"
+import type { GravityApprovalRequest, GravityChatMessage, GravityContext, GravityTool } from "@gravity/contracts"
 
+import { createStoredApprovalRequest } from "./approvals.js"
 import { gravityCoreTools, runGravityTool } from "./tool-bus.js"
 
 export type AssistantToolUseResult = {
@@ -31,6 +32,8 @@ type ToolIntent = {
   confidence: number
   reason: string
 }
+
+type ToolIntentContext = Partial<GravityContext>
 
 function getLastUserMessage(messages: GravityChatMessage[]) {
   return [...messages].reverse().find((message) => message.role === "user")?.content.trim() || ""
@@ -219,17 +222,21 @@ function inferToolIntent(message: string): ToolIntent | null {
   return null
 }
 
-function createApprovalRequest(intent: ToolIntent, selectedTool: GravityTool): GravityApprovalRequest {
-  const now = Date.now()
-  return {
-    id: `approval_${now}_${selectedTool.name.replace(/[^a-z0-9]/gi, "_")}`,
-    toolName: selectedTool.name,
-    risk: selectedTool.risk,
-    summary: `Approval required for ${selectedTool.name}`,
+async function createApprovalRequest(
+  intent: ToolIntent,
+  selectedTool: GravityTool,
+  context?: ToolIntentContext
+): Promise<GravityApprovalRequest> {
+  return createStoredApprovalRequest({
+    tool: selectedTool,
     reason: intent.reason,
     proposedInput: intent.input,
-    expiresAt: new Date(now + 10 * 60_000).toISOString(),
-  }
+    summary: `Approval required for ${selectedTool.name}`,
+    workspaceId: context?.workspaceId,
+    userId: context?.userId,
+    sessionId: context?.sessionId,
+    source: "assistant",
+  })
 }
 
 function summarizeToolResult(toolName: string, result: Awaited<ReturnType<typeof runGravityTool>>) {
@@ -240,7 +247,10 @@ function summarizeToolResult(toolName: string, result: Awaited<ReturnType<typeof
   return `${toolName} completed. I attached the structured tool result in toolUse.result so the UI can render the details.`
 }
 
-export async function maybeRunAssistantToolIntent(messages: GravityChatMessage[]): Promise<AssistantToolUseResult> {
+export async function maybeRunAssistantToolIntent(
+  messages: GravityChatMessage[],
+  context?: ToolIntentContext
+): Promise<AssistantToolUseResult> {
   const lastUserMessage = getLastUserMessage(messages)
   if (!lastUserMessage) return { handled: false, status: 200 }
 
@@ -271,7 +281,7 @@ export async function maybeRunAssistantToolIntent(messages: GravityChatMessage[]
   }
 
   if (selectedTool.requiresApproval || selectedTool.risk === "dangerous" || selectedTool.risk === "disallowed") {
-    const approvalRequest = createApprovalRequest(intent, selectedTool)
+    const approvalRequest = await createApprovalRequest(intent, selectedTool, context)
     return {
       handled: true,
       status: 202,
@@ -280,7 +290,7 @@ export async function maybeRunAssistantToolIntent(messages: GravityChatMessage[]
         assistant: "Grav",
         runtime: "grav-core",
         mode: "tool-use",
-        content: `${selectedTool.name} needs operator approval before Gravity can run it. I created an approval request instead of executing it blindly.`,
+        content: `${selectedTool.name} needs operator approval before Gravity can run it. I stored an approval request in the Core approval queue instead of executing it blindly.`,
         toolUse: {
           strategy: "deterministic-intent",
           intent: intent.intent,
@@ -294,7 +304,7 @@ export async function maybeRunAssistantToolIntent(messages: GravityChatMessage[]
   }
 
   if (selectedTool.risk !== "safe") {
-    const approvalRequest = createApprovalRequest(intent, selectedTool)
+    const approvalRequest = await createApprovalRequest(intent, selectedTool, context)
     return {
       handled: true,
       status: 202,
@@ -303,7 +313,7 @@ export async function maybeRunAssistantToolIntent(messages: GravityChatMessage[]
         assistant: "Grav",
         runtime: "grav-core",
         mode: "tool-use",
-        content: `${selectedTool.name} is not marked safe, so Gravity will not run it automatically from chat. Operator approval is required.`,
+        content: `${selectedTool.name} is not marked safe, so Gravity will not run it automatically from chat. I stored an approval request in the Core approval queue.`,
         toolUse: {
           strategy: "deterministic-intent",
           intent: intent.intent,
