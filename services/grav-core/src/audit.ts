@@ -82,6 +82,17 @@ export function redactChatInput(input: unknown) {
   }
 }
 
+function summarizeToolUse(payload: {
+  toolUse?: unknown
+  approvalRequests?: unknown
+}) {
+  const toolUse = payload.toolUse && typeof payload.toolUse === "object" ? (payload.toolUse as Record<string, unknown>) : null
+  if (!toolUse) return ""
+
+  const approvalRequests = Array.isArray(payload.approvalRequests) ? payload.approvalRequests.length : 0
+  return ` Tool use: ${typeof toolUse.toolName === "string" ? toolUse.toolName : "unknown tool"}; intent ${typeof toolUse.intent === "string" ? toolUse.intent : "unknown"}; executed ${toolUse.executed === true ? "yes" : "no"}; approval required ${toolUse.requiresApproval === true ? "yes" : "no"}; approvals ${approvalRequests}.`
+}
+
 export function summarizeChatOutput(payload: unknown) {
   if (!payload || typeof payload !== "object") {
     return "No structured payload returned."
@@ -93,6 +104,8 @@ export function summarizeChatOutput(payload: unknown) {
     model?: unknown
     content?: unknown
     error?: unknown
+    toolUse?: unknown
+    approvalRequests?: unknown
     memory?: {
       enabled?: unknown
       configured?: unknown
@@ -101,19 +114,22 @@ export function summarizeChatOutput(payload: unknown) {
     }
   }
 
+  const toolUseSummary = summarizeToolUse(candidate)
   const memorySummary = candidate.memory
     ? ` Memory: matched ${typeof candidate.memory.matched === "number" ? candidate.memory.matched : 0}; configured ${candidate.memory.configured === true ? "yes" : "no"}${typeof candidate.memory.error === "string" ? `; error ${trimText(candidate.memory.error, 100)}` : ""}.`
-    : " Memory: unavailable."
+    : toolUseSummary
+      ? " Memory: skipped for deterministic tool use."
+      : " Memory: unavailable."
 
   if (candidate.ok === false) {
-    return `Chat failed: ${typeof candidate.error === "string" ? trimText(candidate.error) : "unknown error"}.${memorySummary}`
+    return `Chat failed: ${typeof candidate.error === "string" ? trimText(candidate.error) : "unknown error"}.${memorySummary}${toolUseSummary}`
   }
 
-  return `Chat completed via ${typeof candidate.provider === "string" ? candidate.provider : "unknown provider"}${
+  return `Chat completed via ${typeof candidate.provider === "string" ? candidate.provider : toolUseSummary ? "Core tool bus" : "unknown provider"}${
     typeof candidate.model === "string" ? ` using ${candidate.model}` : ""
   }; output preview: ${
     typeof candidate.content === "string" ? trimText(candidate.content.replace(/\s+/g, " ").trim()) : "no content"
-  }.${memorySummary}`
+  }.${memorySummary}${toolUseSummary}`
 }
 
 export function getAuditContext(input: unknown) {
