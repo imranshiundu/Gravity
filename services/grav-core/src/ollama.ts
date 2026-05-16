@@ -74,7 +74,7 @@ export async function runOllamaChat(input: GravityChatInput): Promise<GravCoreCh
     }
   }
 
-  const toolUseResult = await maybeRunAssistantToolIntent(messages)
+  const toolUseResult = await maybeRunAssistantToolIntent(messages, input.context)
   if (toolUseResult.handled && toolUseResult.payload) {
     return {
       ok: toolUseResult.payload.ok,
