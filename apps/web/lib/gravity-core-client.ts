@@ -37,6 +37,11 @@ export type GravityCoreMemorySearchInput = {
   limit?: number
 }
 
+export type GravityCoreToolRunInput = {
+  toolName: string
+  input?: Record<string, unknown>
+}
+
 export type GravityCoreChatBridgeResult = {
   attempted: boolean
   ok: boolean
@@ -54,6 +59,14 @@ export type GravityCoreAuditBridgeResult = {
 }
 
 export type GravityCoreMemoryBridgeResult = {
+  attempted: boolean
+  ok: boolean
+  status: number
+  payload?: unknown
+  error?: string
+}
+
+export type GravityCoreToolsBridgeResult = {
   attempted: boolean
   ok: boolean
   status: number
@@ -90,6 +103,9 @@ function getInProcessCoreStatus(): GravityCoreBridgeStatus {
     endpoints: {
       status: "/api/core/status",
       modules: "/api/modules/status",
+      skills: "/api/core/skills",
+      tools: "/api/core/tools",
+      runTool: "/api/core/tools/run",
       assistant: "/api/assistant/chat",
       memorySave: "/api/memory/save",
       memorySearch: "/api/memory/search",
@@ -104,6 +120,10 @@ function getInProcessCoreStatus(): GravityCoreBridgeStatus {
       error: "GRAVITY_CORE_BASE_URL is not set. Reporting in-process Gravity Web registry state.",
     },
   }
+}
+
+async function readPayload(response: Response) {
+  return response.json().catch(() => ({}))
 }
 
 export async function getGravityCoreStatus(): Promise<GravityCoreBridgeStatus> {
@@ -179,7 +199,7 @@ export async function runGravityCoreChat(
       cache: "no-store",
     })
 
-    const payload = await response.json().catch(() => ({}))
+    const payload = await readPayload(response)
 
     return {
       attempted: true,
@@ -226,7 +246,7 @@ export async function searchGravityCoreMemory(
       cache: "no-store",
     })
 
-    const payload = await response.json().catch(() => ({}))
+    const payload = await readPayload(response)
 
     return {
       attempted: true,
@@ -249,6 +269,86 @@ export async function searchGravityCoreMemory(
   }
 }
 
+export async function getGravityCoreSkills(): Promise<GravityCoreToolsBridgeResult> {
+  const baseUrl = getCoreBaseUrl()
+
+  if (!baseUrl) {
+    return {
+      attempted: false,
+      ok: false,
+      status: 0,
+      payload: {
+        ...getAllGravityModuleStatuses(),
+        warning: "GRAVITY_CORE_BASE_URL is not set. This is the web registry, not Core /skills.",
+      },
+      error: "GRAVITY_CORE_BASE_URL is not set.",
+    }
+  }
+
+  try {
+    const response = await fetch(`${baseUrl}/skills`, { method: "GET", cache: "no-store" })
+    const payload = await readPayload(response)
+    return {
+      attempted: true,
+      ok: response.ok,
+      status: response.status,
+      payload,
+      error: response.ok ? undefined : `Grav Core skills failed with status ${response.status}.`,
+    }
+  } catch (error) {
+    return {
+      attempted: true,
+      ok: false,
+      status: 502,
+      error: error instanceof Error ? error.message : "Unable to reach Grav Core skills.",
+    }
+  }
+}
+
+export async function runGravityCoreTool(
+  input: GravityCoreToolRunInput
+): Promise<GravityCoreToolsBridgeResult> {
+  const baseUrl = getCoreBaseUrl()
+
+  if (!baseUrl) {
+    return {
+      attempted: false,
+      ok: false,
+      status: 0,
+      error: "GRAVITY_CORE_BASE_URL is not set.",
+    }
+  }
+
+  try {
+    const response = await fetch(`${baseUrl}/tools/run`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(input),
+      cache: "no-store",
+    })
+    const payload = await readPayload(response)
+
+    return {
+      attempted: true,
+      ok: response.ok,
+      status: response.status,
+      payload,
+      error: response.ok
+        ? undefined
+        : typeof payload?.error === "string"
+          ? payload.error
+          : `Grav Core tool run failed with status ${response.status}.`,
+    }
+  } catch (error) {
+    return {
+      attempted: true,
+      ok: false,
+      status: 502,
+      error: error instanceof Error ? error.message : "Unable to reach Grav Core tool runner.",
+    }
+  }
+}
+
 export async function getGravityCoreAuditEvents(limit = 50): Promise<GravityCoreAuditBridgeResult> {
   const baseUrl = getCoreBaseUrl()
 
@@ -267,7 +367,7 @@ export async function getGravityCoreAuditEvents(limit = 50): Promise<GravityCore
       cache: "no-store",
     })
 
-    const payload = await response.json().catch(() => ({}))
+    const payload = await readPayload(response)
 
     return {
       attempted: true,
