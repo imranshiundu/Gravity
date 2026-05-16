@@ -1,6 +1,5 @@
 import { SystemAuditPanel } from "@/components/system-audit-panel"
 import { Badge } from "@/components/ui/badge"
-import { Button } from "@/components/ui/button"
 import { getAllGravityModuleStatuses } from "@/lib/gravity-module-status"
 import { cn } from "@/lib/utils"
 
@@ -127,9 +126,14 @@ export function SystemConnectivityDashboard() {
               This page reads the same Gravity module registry used by the API status endpoints. It shows what is actually wired, what is only registered, and what still needs a real adapter.
             </p>
           </div>
-          <Button variant="outline" size="sm" render={<a href="/api/modules/status" target="_blank" rel="noreferrer" />}>
+          <a
+            className="inline-flex h-8 shrink-0 items-center justify-center rounded-4xl border border-border bg-background px-3 text-sm font-medium hover:bg-muted hover:text-foreground"
+            href="/api/modules/status"
+            target="_blank"
+            rel="noreferrer"
+          >
             Open raw status
-          </Button>
+          </a>
         </div>
 
         <div className="mt-4 grid gap-3 md:grid-cols-3">
