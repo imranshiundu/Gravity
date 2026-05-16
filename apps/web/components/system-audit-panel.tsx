@@ -157,9 +157,14 @@ export function SystemAuditPanel() {
           <Button variant="outline" size="sm" onClick={() => void loadAuditEvents()} disabled={isLoading}>
             {isLoading ? "Refreshing" : "Refresh"}
           </Button>
-          <Button variant="outline" size="sm" render={<a href="/api/core/audit?limit=50" target="_blank" rel="noreferrer" />}>
+          <a
+            className="inline-flex h-8 shrink-0 items-center justify-center rounded-4xl border border-border bg-background px-3 text-sm font-medium hover:bg-muted hover:text-foreground"
+            href="/api/core/audit?limit=50"
+            target="_blank"
+            rel="noreferrer"
+          >
             Raw audit
-          </Button>
+          </a>
         </div>
       </div>
 
