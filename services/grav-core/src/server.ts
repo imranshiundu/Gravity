@@ -1,5 +1,12 @@
 import { createServer } from "node:http"
 
+import {
+  getAuditContext,
+  readAuditEvents,
+  redactChatInput,
+  summarizeChatOutput,
+  writeAuditEvent,
+} from "./audit.js"
 import { sendJson, readJsonBody } from "./http.js"
 import { runOllamaChat } from "./ollama.js"
 import { getGravCoreStatus, gravCoreModules, gravCoreProviders } from "./registry.js"
@@ -15,13 +22,48 @@ const server = createServer(async (request, response) => {
   const url = new URL(request.url || "/", `http://${request.headers.host || "localhost"}`)
 
   if (request.method === "POST" && url.pathname === "/chat") {
+    let body: unknown = {}
+
     try {
-      const result = await runOllamaChat(await readJsonBody(request))
-      sendJson(response, result.status, result.payload)
+      body = await readJsonBody(request)
+      const context = getAuditContext(body)
+      const result = await runOllamaChat(body)
+      const auditEvent = await writeAuditEvent({
+        workspaceId: context.workspaceId,
+        userId: context.userId,
+        sessionId: context.sessionId,
+        mode: context.modes,
+        eventType: "assistant.chat",
+        summary: result.ok ? "Assistant chat completed." : "Assistant chat failed.",
+        moduleId: "assistant",
+        risk: "safe",
+        inputRedacted: redactChatInput(body),
+        outputSummary: summarizeChatOutput(result.payload),
+      })
+
+      sendJson(response, result.status, {
+        ...result.payload,
+        auditEventId: auditEvent.id,
+      })
     } catch (error) {
+      const context = getAuditContext(body)
+      const auditEvent = await writeAuditEvent({
+        workspaceId: context.workspaceId,
+        userId: context.userId,
+        sessionId: context.sessionId,
+        mode: context.modes,
+        eventType: "assistant.chat.invalid",
+        summary: "Assistant chat request was invalid.",
+        moduleId: "assistant",
+        risk: "safe",
+        inputRedacted: redactChatInput(body),
+        outputSummary: error instanceof Error ? error.message : "Invalid chat request.",
+      })
+
       sendJson(response, 400, {
         ok: false,
         error: error instanceof Error ? error.message : "Invalid chat request.",
+        auditEventId: auditEvent.id,
       })
     }
     return
@@ -69,10 +111,22 @@ const server = createServer(async (request, response) => {
     return
   }
 
+  if (url.pathname === "/audit") {
+    sendJson(response, 200, await readAuditEvents(Number(url.searchParams.get("limit") || 50)))
+    return
+  }
+
   sendJson(response, 404, {
     ok: false,
     error: "Route not found.",
-    availableRoutes: ["/health", "/status", "/modules", "/providers", "POST /chat"],
+    availableRoutes: [
+      "/health",
+      "/status",
+      "/modules",
+      "/providers",
+      "/audit",
+      "POST /chat",
+    ],
   })
 })
 
