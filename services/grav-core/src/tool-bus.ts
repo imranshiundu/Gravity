@@ -1,6 +1,12 @@
 import type { GravityTool, GravityToolRisk } from "@gravity/contracts"
 
 import { readAuditEvents } from "./audit.js"
+import {
+  getCodingExecutionUnavailable,
+  getCodingModuleInventory,
+  readCodingModuleFile,
+  searchCodingModules,
+} from "./coding-modules.js"
 import { searchMempalaceMemories } from "./memory.js"
 import { getGravCoreStatus, gravCoreModules } from "./registry.js"
 import { scanGravityWorkspace } from "./workspace-scan.js"
@@ -103,6 +109,92 @@ export const gravityCoreTools: GravityTool[] = [
     risk: "safe",
     requiresApproval: false,
     inputSchema: { type: "object", properties: {} },
+  },
+  {
+    name: "coding.modules.inventory",
+    title: "Inventory coding modules",
+    description:
+      "Inspect real coding module manifests, CLI entrypoints, routes, tool files, HTTP clients, and warnings under modules/coding-openhands, modules/coding-aider, and modules/coding-claw.",
+    moduleId: "coding",
+    risk: "safe",
+    requiresApproval: false,
+    inputSchema: {
+      type: "object",
+      properties: {
+        moduleId: {
+          type: "string",
+          enum: ["coding-openhands", "coding-aider", "coding-claw"],
+        },
+        includeFiles: { type: "boolean" },
+      },
+    },
+  },
+  {
+    name: "coding.modules.search",
+    title: "Search coding modules",
+    description:
+      "Search within the actual coding module source trees without executing code or modifying files.",
+    moduleId: "coding",
+    risk: "safe",
+    requiresApproval: false,
+    inputSchema: {
+      type: "object",
+      properties: {
+        query: { type: "string" },
+        moduleId: {
+          type: "string",
+          enum: ["coding-openhands", "coding-aider", "coding-claw"],
+        },
+        limit: { type: "number" },
+      },
+      required: ["query"],
+    },
+  },
+  {
+    name: "coding.modules.read",
+    title: "Read coding module file",
+    description:
+      "Read a small text/code file only from modules/coding-openhands, modules/coding-aider, or modules/coding-claw. Credential-style files are blocked.",
+    moduleId: "coding",
+    risk: "safe",
+    requiresApproval: false,
+    inputSchema: {
+      type: "object",
+      properties: {
+        file: { type: "string" },
+      },
+      required: ["file"],
+    },
+  },
+  {
+    name: "coding.openhands.run",
+    title: "Run OpenHands action",
+    description:
+      "Approval-gated placeholder for future OpenHands execution. Currently returns 501 until the real module contract and sandbox policy are reviewed.",
+    moduleId: "coding-openhands",
+    risk: "dangerous",
+    requiresApproval: true,
+    inputSchema: { type: "object", properties: { approved: { type: "boolean" }, body: { type: "object" } } },
+  },
+  {
+    name: "coding.aider.run",
+    title: "Run Aider action",
+    description:
+      "Approval-gated placeholder for future Aider execution. Currently returns 501 until the real CLI contract and edit policy are reviewed.",
+    moduleId: "coding-aider",
+    risk: "dangerous",
+    requiresApproval: true,
+    inputSchema: { type: "object", properties: { approved: { type: "boolean" }, body: { type: "object" } } },
+  },
+  {
+    name: "coding.claw.run",
+    title: "Run Claw action",
+    description:
+      "Approval-gated placeholder for future Claw execution. Currently returns 501 until the real module contract and sandbox policy are reviewed.",
+    moduleId: "coding-claw",
+    risk: "dangerous",
+    requiresApproval: true,
+    inputSchema: { type: "object", properties: { approved: { type: "boolean" }, body: { type: "object" } } },
   },
   {
     name: "defense.scan",
@@ -287,6 +379,45 @@ export async function runGravityTool(payload: CoreToolRunInput) {
     if (tool.name === "coding.scan") {
       const result = await scanGravityWorkspace({ mode: "coding" })
       return { ok: result.ok, status: result.ok ? 200 : result.status, tool, data: result }
+    }
+
+    if (tool.name === "coding.modules.inventory") {
+      const result = await getCodingModuleInventory({
+        moduleId: getString(input.moduleId) || undefined,
+        includeFiles: input.includeFiles === true,
+      })
+      return { ok: result.ok, status: result.status, tool, data: result }
+    }
+
+    if (tool.name === "coding.modules.search") {
+      const result = await searchCodingModules({
+        query: getString(input.query),
+        moduleId: getString(input.moduleId) || undefined,
+        limit: normalizeLimit(input.limit, 20),
+      })
+      return { ok: result.ok, status: result.status, tool, data: result }
+    }
+
+    if (tool.name === "coding.modules.read") {
+      const result = await readCodingModuleFile({
+        file: getString(input.file),
+      })
+      return { ok: result.ok, status: result.status, tool, data: result }
+    }
+
+    if (tool.name === "coding.openhands.run") {
+      const result = getCodingExecutionUnavailable("coding-openhands", tool.name)
+      return { ok: result.ok, status: result.status, tool, data: result, error: result.error }
+    }
+
+    if (tool.name === "coding.aider.run") {
+      const result = getCodingExecutionUnavailable("coding-aider", tool.name)
+      return { ok: result.ok, status: result.status, tool, data: result, error: result.error }
+    }
+
+    if (tool.name === "coding.claw.run") {
+      const result = getCodingExecutionUnavailable("coding-claw", tool.name)
+      return { ok: result.ok, status: result.status, tool, data: result, error: result.error }
     }
 
     if (tool.name === "defense.scan") {
