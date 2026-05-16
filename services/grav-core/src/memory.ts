@@ -1,23 +1,25 @@
-import { access, readFile } from "node:fs/promises"
+import { execFile } from "node:child_process"
+import { access } from "node:fs/promises"
 import path from "node:path"
+import { promisify } from "node:util"
 
 import type { GravityChatInput, GravityChatMessage } from "@gravity/contracts"
 
-type LocalMemoryEntry = {
-  id?: string
-  content?: string
-  type?: string
-  source?: string
-  tags?: string[]
-  metadata?: Record<string, unknown>
-  createdAt?: string
-  updatedAt?: string
+const execFileAsync = promisify(execFile)
+
+export type GravCoreMemorySearchInput = {
+  query?: string
+  wing?: string
+  room?: string
+  limit?: number
 }
 
 export type GravCoreMemorySearchResult = {
   ok: boolean
   configured: boolean
+  backend: "mempalace"
   source: string
+  palacePath?: string
   query: string
   count: number
   memories: Array<{
@@ -25,70 +27,68 @@ export type GravCoreMemorySearchResult = {
     content: string
     type: string
     source: string
+    wing?: string
+    room?: string
     tags: string[]
     score: number
     createdAt?: string
   }>
   error?: string
+  hint?: string
+}
+
+type MempalaceBridgeResponse = {
+  error?: string
+  hint?: string
+  query?: string
+  palace_path?: string
+  results?: Array<{
+    text?: string
+    wing?: string
+    room?: string
+    source_file?: string
+    similarity?: number
+  }>
 }
 
 const DEFAULT_MEMORY_LIMIT = 5
+const MAX_MEMORY_LIMIT = 20
 const MAX_MEMORY_CONTEXT_CHARS = 2_500
-const MAX_MEMORY_ITEM_CHARS = 500
-const STOP_WORDS = new Set([
-  "a",
-  "an",
-  "and",
-  "are",
-  "as",
-  "at",
-  "be",
-  "but",
-  "by",
-  "for",
-  "from",
-  "how",
-  "i",
-  "in",
-  "is",
-  "it",
-  "of",
-  "on",
-  "or",
-  "that",
-  "the",
-  "this",
-  "to",
-  "we",
-  "what",
-  "with",
-  "you",
-  "your",
-])
+const MAX_MEMORY_ITEM_CHARS = 700
 
-function getMemoryFilePath() {
-  if (process.env.GRAVITY_MEMORY_FILE?.trim()) {
-    return path.resolve(process.env.GRAVITY_MEMORY_FILE.trim())
+const MEM_PALACE_BRIDGE_SCRIPT = String.raw`
+import base64
+import json
+import sys
+
+payload = json.loads(base64.b64decode(sys.argv[1]).decode("utf-8"))
+
+from mempalace.config import MempalaceConfig
+from mempalace.searcher import search_memories
+
+palace_path = payload.get("palacePath") or MempalaceConfig().palace_path
+result = search_memories(
+    query=payload.get("query") or "",
+    palace_path=palace_path,
+    wing=payload.get("wing") or None,
+    room=payload.get("room") or None,
+    n_results=int(payload.get("limit") or 5),
+)
+result["palace_path"] = palace_path
+print(json.dumps(result))
+`
+
+function normalizeLimit(value: unknown) {
+  if (typeof value !== "number" || !Number.isFinite(value)) {
+    return DEFAULT_MEMORY_LIMIT
   }
 
-  if (process.env.GRAVITY_DATA_DIR?.trim()) {
-    return path.join(path.resolve(process.env.GRAVITY_DATA_DIR.trim()), "memory.json")
-  }
-
-  return path.join(process.cwd(), ".grav-core", "memory.json")
+  return Math.min(Math.max(Math.trunc(value), 1), MAX_MEMORY_LIMIT)
 }
 
 function trimText(value: string, limit: number) {
   const normalized = value.replace(/\s+/g, " ").trim()
   return normalized.length > limit ? `${normalized.slice(0, limit)}…` : normalized
-}
-
-function tokenize(value: string) {
-  return value
-    .toLowerCase()
-    .split(/[^a-z0-9_@./:-]+/i)
-    .map((token) => token.trim())
-    .filter((token) => token.length > 2 && !STOP_WORDS.has(token))
 }
 
 function getLastUserText(input: GravityChatInput) {
@@ -98,40 +98,112 @@ function getLastUserText(input: GravityChatInput) {
     ?.content?.trim()
 }
 
-async function memoryFileExists(filePath: string) {
+async function pathExists(targetPath: string) {
   try {
-    await access(filePath)
+    await access(targetPath)
     return true
   } catch {
     return false
   }
 }
 
-async function readLocalMemories(filePath: string): Promise<LocalMemoryEntry[]> {
-  if (!(await memoryFileExists(filePath))) {
-    return []
+async function findRepoRoot() {
+  const explicitRoot = process.env.GRAVITY_REPO_ROOT?.trim()
+  const candidates = explicitRoot ? [path.resolve(explicitRoot)] : []
+
+  let current = process.cwd()
+  for (let index = 0; index < 8; index += 1) {
+    candidates.push(current)
+    const next = path.dirname(current)
+    if (next === current) {
+      break
+    }
+    current = next
   }
 
-  const raw = await readFile(filePath, "utf-8")
-  const parsed = JSON.parse(raw) as unknown
-
-  if (!Array.isArray(parsed)) {
-    return []
+  for (const candidate of candidates) {
+    const marker = path.join(candidate, "modules", "memory", "mempalace", "searcher.py")
+    if (await pathExists(marker)) {
+      return candidate
+    }
   }
 
-  return parsed.filter((entry): entry is LocalMemoryEntry => {
-    return Boolean(entry) && typeof entry === "object" && typeof (entry as LocalMemoryEntry).content === "string"
-  })
+  return ""
 }
 
-export async function searchCoreMemories(input: GravityChatInput): Promise<GravCoreMemorySearchResult> {
-  const source = getMemoryFilePath()
-  const query = getLastUserText(input) || ""
+function getPythonCommand() {
+  return process.env.GRAVITY_MEMPALACE_PYTHON?.trim() || process.env.PYTHON?.trim() || "python3"
+}
+
+function getMemoryScope(input: GravityChatInput | GravCoreMemorySearchInput) {
+  const context = "context" in input && input.context && typeof input.context === "object" ? input.context : {}
+  const contextRecord = context as Record<string, unknown>
+
+  return {
+    wing:
+      typeof (input as GravCoreMemorySearchInput).wing === "string" &&
+      (input as GravCoreMemorySearchInput).wing?.trim()
+        ? (input as GravCoreMemorySearchInput).wing?.trim()
+        : typeof contextRecord.memoryWing === "string" && contextRecord.memoryWing.trim()
+          ? contextRecord.memoryWing.trim()
+          : process.env.GRAVITY_MEMPALACE_WING?.trim() || undefined,
+    room:
+      typeof (input as GravCoreMemorySearchInput).room === "string" &&
+      (input as GravCoreMemorySearchInput).room?.trim()
+        ? (input as GravCoreMemorySearchInput).room?.trim()
+        : typeof contextRecord.memoryRoom === "string" && contextRecord.memoryRoom.trim()
+          ? contextRecord.memoryRoom.trim()
+          : process.env.GRAVITY_MEMPALACE_ROOM?.trim() || undefined,
+  }
+}
+
+async function runMempalaceBridge(input: GravCoreMemorySearchInput): Promise<MempalaceBridgeResponse> {
+  const repoRoot = await findRepoRoot()
+
+  if (!repoRoot) {
+    return {
+      error: "MemPalace module not found under modules/memory.",
+      hint: "Set GRAVITY_REPO_ROOT to the Gravity repository root or run Core from inside the repo.",
+      results: [],
+    }
+  }
+
+  const modulePath = path.join(repoRoot, "modules", "memory")
+  const payload = Buffer.from(
+    JSON.stringify({
+      query: input.query || "",
+      wing: input.wing,
+      room: input.room,
+      limit: normalizeLimit(input.limit),
+      palacePath:
+        process.env.MEMPALACE_PALACE_PATH?.trim() || process.env.MEMPAL_PALACE_PATH?.trim() || undefined,
+    })
+  ).toString("base64")
+
+  const { stdout } = await execFileAsync(getPythonCommand(), ["-c", MEM_PALACE_BRIDGE_SCRIPT, payload], {
+    env: {
+      ...process.env,
+      PYTHONPATH: [modulePath, process.env.PYTHONPATH].filter(Boolean).join(path.delimiter),
+    },
+    timeout: 15_000,
+    maxBuffer: 2_000_000,
+  })
+
+  return JSON.parse(stdout.trim()) as MempalaceBridgeResponse
+}
+
+export async function searchMempalaceMemories(
+  input: GravCoreMemorySearchInput
+): Promise<GravCoreMemorySearchResult> {
+  const query = typeof input.query === "string" ? input.query.trim() : ""
+  const scope = getMemoryScope(input)
+  const source = "modules/memory/mempalace.searcher.search_memories"
 
   if (!query) {
     return {
       ok: true,
       configured: true,
+      backend: "mempalace",
       source,
       query,
       count: 0,
@@ -140,53 +212,45 @@ export async function searchCoreMemories(input: GravityChatInput): Promise<GravC
   }
 
   try {
-    const entries = await readLocalMemories(source)
-    const queryTokens = new Set(tokenize(query))
+    const response = await runMempalaceBridge({
+      query,
+      wing: scope.wing,
+      room: scope.room,
+      limit: normalizeLimit(input.limit),
+    })
 
-    if (entries.length === 0 || queryTokens.size === 0) {
+    if (response.error) {
       return {
-        ok: true,
-        configured: await memoryFileExists(source),
+        ok: false,
+        configured: response.error !== "No palace found",
+        backend: "mempalace",
         source,
+        palacePath: response.palace_path,
         query,
         count: 0,
         memories: [],
+        error: response.error,
+        hint: response.hint,
       }
     }
 
-    const scored = entries
-      .map((entry, index) => {
-        const haystack = [entry.content, entry.type, entry.source, ...(entry.tags || [])]
-          .join(" ")
-          .toLowerCase()
-        const score = [...queryTokens].reduce((total, token) => {
-          return haystack.includes(token) ? total + 1 : total
-        }, 0)
-
-        return {
-          entry,
-          index,
-          score,
-        }
-      })
-      .filter((item) => item.score > 0)
-      .sort((a, b) => b.score - a.score || a.index - b.index)
-      .slice(0, DEFAULT_MEMORY_LIMIT)
-
-    const memories = scored.map(({ entry, score }, index) => ({
-      id: entry.id || `memory-${index}`,
-      content: trimText(entry.content || "", MAX_MEMORY_ITEM_CHARS),
-      type: entry.type || "note",
-      source: entry.source || "gravity-memory",
-      tags: Array.isArray(entry.tags) ? entry.tags.filter((tag): tag is string => typeof tag === "string") : [],
-      score,
-      createdAt: entry.createdAt,
+    const memories = (response.results || []).map((item, index) => ({
+      id: `${item.wing || "wing"}:${item.room || "room"}:${item.source_file || index}`,
+      content: trimText(item.text || "", MAX_MEMORY_ITEM_CHARS),
+      type: "mempalace-drawer",
+      source: item.source_file || "mempalace",
+      wing: item.wing,
+      room: item.room,
+      tags: [item.wing, item.room].filter((tag): tag is string => Boolean(tag)),
+      score: typeof item.similarity === "number" ? item.similarity : 0,
     }))
 
     return {
       ok: true,
       configured: true,
+      backend: "mempalace",
       source,
+      palacePath: response.palace_path,
       query,
       count: memories.length,
       memories,
@@ -195,13 +259,24 @@ export async function searchCoreMemories(input: GravityChatInput): Promise<GravC
     return {
       ok: false,
       configured: true,
+      backend: "mempalace",
       source,
       query,
       count: 0,
       memories: [],
-      error: error instanceof Error ? error.message : "Unable to search memory file.",
+      error: error instanceof Error ? error.message : "Unable to call MemPalace module.",
     }
   }
+}
+
+export async function searchCoreMemories(input: GravityChatInput): Promise<GravCoreMemorySearchResult> {
+  const scope = getMemoryScope(input)
+  return searchMempalaceMemories({
+    query: getLastUserText(input) || "",
+    wing: scope.wing,
+    room: scope.room,
+    limit: DEFAULT_MEMORY_LIMIT,
+  })
 }
 
 export function buildMemoryContextMessage(result: GravCoreMemorySearchResult): GravityChatMessage | null {
@@ -209,10 +284,11 @@ export function buildMemoryContextMessage(result: GravCoreMemorySearchResult): G
     return null
   }
 
-  let context = "Relevant Gravity memory context. Use only when helpful; do not claim memory certainty beyond this context.\n"
+  let context = "Relevant MemPalace memory context from modules/memory. Use only when helpful; do not claim memory certainty beyond this context.\n"
 
   for (const memory of result.memories) {
-    const nextLine = `\n- [${memory.type} | ${memory.source} | score ${memory.score}] ${memory.content}`
+    const location = [memory.wing, memory.room].filter(Boolean).join("/") || "unknown"
+    const nextLine = `\n- [${location} | ${memory.source} | score ${memory.score}] ${memory.content}`
     if ((context + nextLine).length > MAX_MEMORY_CONTEXT_CHARS) {
       break
     }
@@ -229,8 +305,11 @@ export function summarizeMemoryUse(result: GravCoreMemorySearchResult) {
   return {
     enabled: result.ok,
     configured: result.configured,
+    backend: result.backend,
     source: result.source,
+    palacePath: result.palacePath,
     matched: result.count,
     error: result.error,
+    hint: result.hint,
   }
 }
