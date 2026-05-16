@@ -13,6 +13,8 @@ export type GravityMode =
 
 export type GravityConnectionState = "connected" | "registered" | "missing" | "planned"
 
+export type GravityApprovalStatus = "pending" | "approved" | "rejected" | "expired" | "executed" | "failed"
+
 export type GravityContext = {
   workspaceId: string
   sessionId: string
@@ -127,7 +129,22 @@ export type GravityApprovalRequest = {
   summary: string
   reason: string
   proposedInput: unknown
+  status?: GravityApprovalStatus
+  workspaceId?: string
+  userId?: string
+  sessionId?: string
+  source?: "assistant" | "system" | "api"
+  createdAt?: string
   expiresAt?: string
+  approvedAt?: string
+  approvedBy?: string
+  rejectedAt?: string
+  rejectedBy?: string
+  rejectionReason?: string
+  executedAt?: string
+  failedAt?: string
+  resultSummary?: string
+  auditEventId?: string
 }
 
 export type GravityAuditEvent = {
