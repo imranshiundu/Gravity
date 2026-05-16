@@ -13,8 +13,8 @@ apps/web
 apps/web
   -> /api/assistant/status
   -> /api/assistant/chat
-  -> Ollama bridge
-  -> modules/ollama runtime
+  -> services/grav-core POST /chat when GRAVITY_CORE_BASE_URL is configured
+  -> direct Ollama fallback when Core is not configured
 ```
 
 The old engine-specific routes still exist for runtime inspection:
@@ -62,19 +62,23 @@ GRAVITY_CORE_BASE_URL=http://127.0.0.1:8765
 Core service routes:
 
 ```text
-GET /health
-GET /status
-GET /modules
-GET /providers
+GET  /health
+GET  /status
+GET  /modules
+GET  /providers
+POST /chat
 ```
 
-Web bridge route:
+Web bridge routes:
 
 ```text
-GET /api/core/status
+GET  /api/core/status
+POST /api/core/chat
 ```
 
 If `GRAVITY_CORE_BASE_URL` is missing, `/api/core/status` reports `mode: "in-process"`. If the URL is set but unreachable, it reports `mode: "unavailable"` and returns `503`.
+
+`/api/assistant/chat` now uses Core first when `GRAVITY_CORE_BASE_URL` is configured. If Core is not configured, it uses the direct Ollama route. If Core is configured but failing, it returns the Core failure honestly instead of silently pretending Core worked.
 
 ## Interface rule
 
@@ -92,9 +96,10 @@ If `GRAVITY_CORE_BASE_URL` is missing, `/api/core/status` reports `mode: "in-pro
 
 ```text
 GET  /api/assistant/status    -> Grav + Gravity Web + Ollama runtime status
-POST /api/assistant/chat      -> Grav chat contract, backed by Ollama
+POST /api/assistant/chat      -> Grav chat contract; Core-backed when configured, otherwise direct Ollama
 GET  /api/ollama/status       -> Ollama diagnostic status
 POST /api/ollama/chat         -> Ollama diagnostic chat bridge
+POST /api/core/chat           -> explicit web-to-Core chat bridge
 ```
 
 ### Module status
@@ -226,17 +231,18 @@ These should be treated as feature and workflow reference material. Gravity shou
 
 Ollama is connected to the Gravity web app through Gravity-owned routes.
 
-It is **registered in `services/grav-core` as a local model provider**, but assistant chat still routes through the existing web bridge until the Core orchestration planner is built.
+It is registered in `services/grav-core` as a local model provider, and Core now has `POST /chat` for Ollama-backed chat orchestration.
 
 Right now:
 
-- `apps/web` talks to Ollama through Gravity routes.
-- `services/grav-core` exposes provider/module registry contracts.
-- Core does not yet execute assistant orchestration, approvals, or tools.
+- `apps/web` talks to Core for assistant chat when `GRAVITY_CORE_BASE_URL` is configured.
+- Core talks to Ollama through `OLLAMA_BASE_URL` and `GRAV_DEFAULT_MODEL`.
+- If Core is not configured, `apps/web` still uses the direct Ollama route.
+- Core does not yet execute approvals, tools, memory retrieval, or audit events in the chat path.
 
 ## Current truth about module integration
 
-- Core now exists as `services/grav-core` and has a web bridge through `/api/core/status`.
+- Core now exists as `services/grav-core`, exposes `/chat`, and has a web bridge through `/api/core/chat` and `/api/core/status`.
 - Memory has a working Gravity-owned local adapter.
 - Coding and defense have guarded local scan adapters.
 - Channels has an honest proxy adapter, but needs `GRAVITY_CHANNELS_BASE_URL`.
@@ -245,7 +251,7 @@ Right now:
 
 ## Next endpoint work
 
-1. Add a Core orchestration route so `/api/assistant/chat` can call Core first instead of directly calling Ollama.
+1. Add Core audit events for chat and tool-capability calls.
 2. Replace the local JSON memory adapter with a MemPalace/vector adapter while keeping the same `/api/memory/*` contract.
 3. Add safe coding edit/run endpoints with approval gating.
 4. Add channel send/plugin endpoints behind `GRAVITY_CHANNELS_BASE_URL`.
