@@ -1,11 +1,14 @@
 export type GravityModuleStatusId =
   | "core"
+  | "core-bindings"
   | "memory"
   | "channels"
   | "voice"
   | "coding"
   | "defense"
   | "gateway"
+  | "orchestration"
+  | "ollama"
 
 export type GravityModuleConnectionState =
   | "connected"
@@ -34,23 +37,35 @@ export type GravityModuleStatus = {
   }
 }
 
-export const gravityModuleStatuses: Record<
-  GravityModuleStatusId,
-  GravityModuleStatus
-> = {
+export const gravityModuleStatuses: Record<GravityModuleStatusId, GravityModuleStatus> = {
   core: {
     id: "core",
     name: "Gravity Core",
     sourcePath: "services/grav-core",
     language: "typescript/node-http",
-    endpoint: "/api/core/status",
+    endpoint: "/api/core/status, /api/core/skills, /api/core/tools, /api/core/tools/run",
     connectionState: "registered",
     interfaceRole: "backend-only",
-    capabilities: ["module-registry", "provider-registry", "core-health", "shared-contracts"],
+    capabilities: ["module-registry", "provider-registry", "core-health", "tool-bus", "audit", "chat"],
     adapter: {
       implemented: true,
       notes:
-        "services/grav-core now exists and exposes /health, /status, /modules, /providers, /audit, /chat, and /memory/search. The web route /api/core/status bridges to GRAVITY_CORE_BASE_URL when configured, otherwise it reports the in-process Gravity Web registry honestly.",
+        "services/grav-core exposes /health, /status, /modules, /providers, /skills, /tools, /tools/run, /audit, /chat, and /memory/search. Web bridges call it through GRAVITY_CORE_BASE_URL when configured.",
+    },
+  },
+  "core-bindings": {
+    id: "core-bindings",
+    name: "Universal Module Bindings",
+    sourcePath: "services/grav-core/src/module-bindings.ts, services/grav-core/src/adapters",
+    language: "typescript/core-adapters",
+    endpoint: "Core tools: modules.inventory, modules.search, modules.read",
+    connectionState: "connected",
+    interfaceRole: "backend-only",
+    capabilities: ["module-inventory", "route-discovery", "source-search", "safe-read", "service-probe", "service-proxy"],
+    adapter: {
+      implemented: true,
+      notes:
+        "Core now inventories all known /modules source trees and provides dedicated adapters for channels, voice, gateway, orchestration, and Ollama. Missing envs are reported as unavailable instead of faking success.",
     },
   },
   memory: {
@@ -58,44 +73,44 @@ export const gravityModuleStatuses: Record<
     name: "MemPalace Memory",
     sourcePath: "modules/memory/mempalace",
     language: "python module bridged through services/grav-core",
-    endpoint: "/api/memory/status, /api/memory/search, Core POST /memory/search",
+    endpoint: "/api/memory/status, /api/memory/search, Core POST /memory/search, Core tool memory.search",
     connectionState: "connected",
     interfaceRole: "backend-only",
     capabilities: ["memory", "retrieval", "indexing", "mempalace-search", "chat-context-injection"],
     adapter: {
       implemented: true,
       notes:
-        "Gravity now routes memory retrieval through the actual modules/memory MemPalace module when GRAVITY_CORE_BASE_URL is configured. Core calls mempalace.searcher.search_memories and injects those results into chat context. The web local JSON store is now only an honest fallback when Core is not configured.",
+        "Gravity routes memory retrieval through the actual modules/memory MemPalace module when GRAVITY_CORE_BASE_URL is configured. Core calls mempalace.searcher.search_memories and injects those results into chat context. Local JSON is only an honest fallback.",
     },
   },
   channels: {
     id: "channels",
     name: "Channels",
-    sourcePath: "modules/channels",
-    language: "python service behind proxy adapter",
-    endpoint: "/api/channels/status",
+    sourcePath: "modules/channels, services/grav-core/src/adapters/channels-adapter.ts",
+    language: "python service behind Core adapter",
+    endpoint: "Core tools: channels.inventory, channels.inbox, channels.send",
     connectionState: "registered",
     interfaceRole: "backend-only",
-    capabilities: ["chat", "plugins", "multi-platform", "inbox-proxy"],
+    capabilities: ["chat", "plugins", "multi-platform", "inbox-proxy", "send-approval"],
     adapter: {
       implemented: true,
       notes:
-        "Gravity Web now exposes /api/channels/inbox as an honest proxy adapter. It requires GRAVITY_CHANNELS_BASE_URL; without that environment variable it returns 503 instead of fake inbox data.",
+        "Channels are now bound through the Core adapter. Inventory is connected; inbox/send require GRAVITY_CHANNELS_BASE_URL. channels.send is approval-gated.",
     },
   },
   voice: {
     id: "voice",
     name: "Voice",
-    sourcePath: "apps/voice-console, apps/voice-realtime-agents",
-    language: "javascript/typescript",
-    endpoint: "/api/voice/status",
+    sourcePath: "modules/voice, services/grav-core/src/adapters/voice-adapter.ts",
+    language: "javascript/typescript service behind Core adapter",
+    endpoint: "Core tools: voice.inventory, voice.session, voice.tts, voice.stt",
     connectionState: "registered",
     interfaceRole: "secondary",
-    capabilities: ["realtime", "streaming-voice", "voice-agents", "session-adapter"],
+    capabilities: ["realtime", "streaming-voice", "voice-agents", "session-adapter", "tts", "stt"],
     adapter: {
       implemented: true,
       notes:
-        "Gravity Web now exposes /api/voice/session. It can proxy GRAVITY_VOICE_BASE_URL or create OpenAI Realtime sessions directly when OPENAI_API_KEY is configured.",
+        "Voice is now bound through the Core adapter. Inventory is connected; session/TTS/STT require GRAVITY_VOICE_BASE_URL.",
     },
   },
   coding: {
@@ -103,14 +118,14 @@ export const gravityModuleStatuses: Record<
     name: "Coding",
     sourcePath: "modules/coding-openhands, modules/coding-aider, modules/coding-claw",
     language: "typescript adapter; python/rust modules remain source capabilities",
-    endpoint: "/api/coding/status",
+    endpoint: "Core tools: coding.scan, coding.modules.inventory, coding.modules.search, coding.modules.read",
     connectionState: "connected",
     interfaceRole: "reference",
-    capabilities: ["coding", "agent-execution", "repository-scanning", "route-inventory"],
+    capabilities: ["coding", "repository-scanning", "route-inventory", "safe-source-read", "execution-registered-not-enabled"],
     adapter: {
       implemented: true,
       notes:
-        "Gravity Web now exposes /api/coding/scan for guarded local repository inspection. It requires GRAVITY_ENABLE_LOCAL_TOOLS=true and GRAVITY_WORKSPACE_ROOT. Edit/run actions are still intentionally not implemented.",
+        "Core safely inventories/searches/reads OpenHands, Aider, and Claw module source trees. Edit/run actions are registered but intentionally unavailable until sandbox, allowlist, rollback, and audit policy are reviewed.",
     },
   },
   defense: {
@@ -118,29 +133,59 @@ export const gravityModuleStatuses: Record<
     name: "Defense",
     sourcePath: "modules/defense",
     language: "typescript adapter; python module remains source capability",
-    endpoint: "/api/defense/status",
+    endpoint: "Core tool: defense.scan",
     connectionState: "connected",
     interfaceRole: "reference",
     capabilities: ["defensive-security", "audit", "secret-risk-scan", "todo-scan"],
     adapter: {
       implemented: true,
       notes:
-        "Gravity Web now exposes /api/defense/scan for guarded defensive repository checks. It reports secret-like assignments, TODO markers, and skipped large files. It does not run offensive scans.",
+        "Core exposes guarded defensive repository checks for secret-like assignments, TODO markers, and skipped large files. It does not run offensive scans.",
     },
   },
   gateway: {
     id: "gateway",
     name: "Gateway",
-    sourcePath: "modules/gateway",
-    language: "rust",
-    endpoint: "/api/gateway/status",
+    sourcePath: "modules/gateway, services/grav-core/src/adapters/gateway-adapter.ts",
+    language: "rust service behind Core adapter",
+    endpoint: "Core tools: gateway.inventory, gateway.status, gateway.proxy",
     connectionState: "registered",
     interfaceRole: "backend-only",
-    capabilities: ["gateway", "proxy", "traffic-control"],
+    capabilities: ["gateway", "proxy", "traffic-control", "route-control", "approval-gated-proxy"],
     adapter: {
-      implemented: false,
+      implemented: true,
       notes:
-        "Gateway code is registered, but no web-facing route control or proxy adapter is connected to Gravity Web yet.",
+        "Gateway is now bound through the Core adapter. Inventory is connected; status/proxy require GRAVITY_GATEWAY_BASE_URL. gateway.proxy is approval-gated.",
+    },
+  },
+  orchestration: {
+    id: "orchestration",
+    name: "Orchestration",
+    sourcePath: "modules/orchestration, services/grav-core/src/adapters/orchestration-adapter.ts",
+    language: "typescript service behind Core adapter",
+    endpoint: "Core tools: orchestration.inventory, orchestration.workflow.run",
+    connectionState: "registered",
+    interfaceRole: "engine-only",
+    capabilities: ["agents", "workflows", "handoffs", "guardrails", "approval-gated-workflows"],
+    adapter: {
+      implemented: true,
+      notes:
+        "Orchestration is now bound through the Core adapter. Inventory is connected; workflow execution requires GRAVITY_ORCHESTRATION_BASE_URL and operator approval.",
+    },
+  },
+  ollama: {
+    id: "ollama",
+    name: "Ollama",
+    sourcePath: "modules/ollama, services/grav-core/src/adapters/ollama-adapter.ts",
+    language: "local model provider behind Core adapter",
+    endpoint: "Core tools: ollama.inventory, ollama.models, ollama.generate, ollama.chat",
+    connectionState: "registered",
+    interfaceRole: "engine-only",
+    capabilities: ["local-llm", "model-provider", "model-listing", "chat", "generation"],
+    adapter: {
+      implemented: true,
+      notes:
+        "Ollama is now bound through the Core adapter. Inventory is connected; models/generate/chat require OLLAMA_BASE_URL.",
     },
   },
 }
