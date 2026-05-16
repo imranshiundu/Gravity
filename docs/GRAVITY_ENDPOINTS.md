@@ -14,6 +14,8 @@ apps/web
   -> /api/assistant/status
   -> /api/assistant/chat
   -> services/grav-core POST /chat when GRAVITY_CORE_BASE_URL is configured
+  -> Core retrieves relevant local memory snippets when a memory file is configured
+  -> Core calls Ollama with memory context injected as a system message
   -> direct Ollama fallback when Core is not configured
   -> services/grav-core writes redacted audit event for each Core chat attempt
 ```
@@ -83,7 +85,49 @@ If `GRAVITY_CORE_BASE_URL` is missing, `/api/core/status` reports `mode: "in-pro
 
 `/api/assistant/chat` now uses Core first when `GRAVITY_CORE_BASE_URL` is configured. If Core is not configured, it uses the direct Ollama route. If Core is configured but failing, it returns the Core failure honestly instead of silently pretending Core worked.
 
-`/chat` writes redacted JSONL audit events to `${GRAV_CORE_DATA_DIR:-services/grav-core/.grav-core}/audit-events.jsonl`. The audit entry stores request shape, message count, roles, the last user-message preview, output summary, session context, and event id. It does not store full raw transcripts.
+`/chat` writes redacted JSONL audit events to `${GRAV_CORE_DATA_DIR:-services/grav-core/.grav-core}/audit-events.jsonl`. The audit entry stores request shape, message count, roles, the last user-message preview, output summary, memory match count, session context, and event id. It does not store full raw transcripts.
+
+## Memory-aware chat
+
+Core chat now performs lightweight local memory retrieval before provider execution.
+
+Memory file priority:
+
+```text
+GRAVITY_MEMORY_FILE=/absolute/path/to/memory.json
+GRAVITY_DATA_DIR=/absolute/path/to/gravity-data/memory.json
+services/grav-core/.grav-core/memory.json
+```
+
+Expected local memory shape:
+
+```json
+[
+  {
+    "id": "memory_1",
+    "type": "project",
+    "source": "manual",
+    "content": "Gravity should route chat through Core before tools.",
+    "tags": ["gravity", "core"],
+    "createdAt": "2026-01-01T00:00:00.000Z"
+  }
+]
+```
+
+Core response memory proof:
+
+```json
+{
+  "memory": {
+    "enabled": true,
+    "configured": true,
+    "source": "/absolute/path/to/memory.json",
+    "matched": 2
+  }
+}
+```
+
+This is still not the full MemPalace/vector backend. It is an honest local JSON retrieval adapter with visible proof fields.
 
 ## Interface rule
 
@@ -132,7 +176,7 @@ POST /api/memory/search
 POST /api/memory/forget
 ```
 
-Current adapter: local JSON store at `${GRAVITY_DATA_DIR:-apps/web/.gravity}/memory.json` when running the web app. This is a Gravity-owned adapter, not yet the full MemPalace vector backend.
+Current adapter: local JSON store at `${GRAVITY_DATA_DIR:-apps/web/.gravity}/memory.json` when running the web app. Core chat can also read a memory file through `GRAVITY_MEMORY_FILE` or `GRAVITY_DATA_DIR`. This is a Gravity-owned adapter, not yet the full MemPalace vector backend.
 
 ### Coding and defense scans
 
@@ -242,15 +286,16 @@ It is registered in `services/grav-core` as a local model provider, and Core now
 Right now:
 
 - `apps/web` talks to Core for assistant chat when `GRAVITY_CORE_BASE_URL` is configured.
+- Core searches local JSON memory and injects matched snippets before calling Ollama.
 - Core talks to Ollama through `OLLAMA_BASE_URL` and `GRAV_DEFAULT_MODEL`.
-- Core writes a redacted audit event for each `/chat` attempt.
+- Core writes a redacted audit event for each `/chat` attempt, including memory match count.
 - If Core is not configured, `apps/web` still uses the direct Ollama route.
-- Core does not yet execute approvals, tools, or memory retrieval in the chat path.
+- Core does not yet execute approvals or tools in the chat path.
 
 ## Current truth about module integration
 
 - Core now exists as `services/grav-core`, exposes `/chat` and `/audit`, and has web bridges through `/api/core/chat`, `/api/core/audit`, and `/api/core/status`.
-- Memory has a working Gravity-owned local adapter.
+- Memory has a working Gravity-owned local adapter and is now injected into Core chat when matches exist.
 - Coding and defense have guarded local scan adapters.
 - Channels has an honest proxy adapter, but needs `GRAVITY_CHANNELS_BASE_URL`.
 - Voice has an honest proxy/direct-session adapter, but needs `GRAVITY_VOICE_BASE_URL` or `OPENAI_API_KEY`.
@@ -258,7 +303,7 @@ Right now:
 
 ## Next endpoint work
 
-1. Add a Core audit/events panel in the `/system` page.
+1. Add a memory proof panel in `/system` or assistant debug output.
 2. Replace the local JSON memory adapter with a MemPalace/vector adapter while keeping the same `/api/memory/*` contract.
 3. Add safe coding edit/run endpoints with approval gating.
 4. Add channel send/plugin endpoints behind `GRAVITY_CHANNELS_BASE_URL`.
