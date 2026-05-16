@@ -6,6 +6,11 @@ Gravity should converge on one owned endpoint contract across web, CLI, and voic
 
 ```text
 apps/web
+  -> /api/core/status
+  -> GRAVITY_CORE_BASE_URL when configured
+  -> in-process Gravity Web registry when Core is not running
+
+apps/web
   -> /api/assistant/status
   -> /api/assistant/chat
   -> Ollama bridge
@@ -20,6 +25,56 @@ The old engine-specific routes still exist for runtime inspection:
 ```
 
 These routes are intentionally kept as diagnostics, not as the main user-facing Gravity contract.
+
+## Grav Core service
+
+The first standalone Core layer now lives at:
+
+```text
+services/grav-core
+```
+
+Shared TypeScript contracts live at:
+
+```text
+packages/grav-contracts
+```
+
+Run Core locally:
+
+```bash
+pnpm install
+pnpm core:dev
+```
+
+Default Core URL:
+
+```text
+http://127.0.0.1:8765
+```
+
+Connect the web app to standalone Core:
+
+```bash
+GRAVITY_CORE_BASE_URL=http://127.0.0.1:8765
+```
+
+Core service routes:
+
+```text
+GET /health
+GET /status
+GET /modules
+GET /providers
+```
+
+Web bridge route:
+
+```text
+GET /api/core/status
+```
+
+If `GRAVITY_CORE_BASE_URL` is missing, `/api/core/status` reports `mode: "in-process"`. If the URL is set but unreachable, it reports `mode: "unavailable"` and returns `503`.
 
 ## Interface rule
 
@@ -46,7 +101,7 @@ POST /api/ollama/chat         -> Ollama diagnostic chat bridge
 
 ```text
 GET /api/modules/status       -> all registered module statuses
-GET /api/core/status          -> Gravity Core connection status
+GET /api/core/status          -> Gravity Core connection status and bridge state
 GET /api/memory/status        -> memory module connection status
 GET /api/channels/status      -> channel module connection status
 GET /api/voice/status         -> voice module connection status
@@ -171,27 +226,28 @@ These should be treated as feature and workflow reference material. Gravity shou
 
 Ollama is connected to the Gravity web app through Gravity-owned routes.
 
-It is **not yet connected to `modules/core` as a replacement model provider**.
+It is **registered in `services/grav-core` as a local model provider**, but assistant chat still routes through the existing web bridge until the Core orchestration planner is built.
 
 Right now:
 
 - `apps/web` talks to Ollama through Gravity routes.
-- `modules/core` remains a source-pattern snapshot and still carries its original provider assumptions.
+- `services/grav-core` exposes provider/module registry contracts.
+- Core does not yet execute assistant orchestration, approvals, or tools.
 
 ## Current truth about module integration
 
+- Core now exists as `services/grav-core` and has a web bridge through `/api/core/status`.
 - Memory has a working Gravity-owned local adapter.
 - Coding and defense have guarded local scan adapters.
 - Channels has an honest proxy adapter, but needs `GRAVITY_CHANNELS_BASE_URL`.
 - Voice has an honest proxy/direct-session adapter, but needs `GRAVITY_VOICE_BASE_URL` or `OPENAI_API_KEY`.
 - Gateway only has status reporting for now.
-- Core is still missing as a real service layer; build `services/grav-core` before marking it connected.
 
 ## Next endpoint work
 
-1. Build `services/grav-core` so `apps/web`, CLI, and voice talk to Gravity Core first.
+1. Add a Core orchestration route so `/api/assistant/chat` can call Core first instead of directly calling Ollama.
 2. Replace the local JSON memory adapter with a MemPalace/vector adapter while keeping the same `/api/memory/*` contract.
 3. Add safe coding edit/run endpoints with approval gating.
 4. Add channel send/plugin endpoints behind `GRAVITY_CHANNELS_BASE_URL`.
 5. Add gateway proxy/control endpoints behind `GRAVITY_GATEWAY_BASE_URL`.
-6. Build a system page in `apps/web` that reads `/api/modules/status` and shows the real connection state.
+6. Add CLI commands that read `/api/core/status`, `/api/modules/status`, and guarded scan endpoints.
