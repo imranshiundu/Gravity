@@ -74,6 +74,14 @@ export type GravityCoreToolsBridgeResult = {
   error?: string
 }
 
+export type GravityCoreApprovalBridgeResult = {
+  attempted: boolean
+  ok: boolean
+  status: number
+  payload?: unknown
+  error?: string
+}
+
 function getCoreBaseUrl() {
   return process.env.GRAVITY_CORE_BASE_URL?.trim().replace(/\/$/, "") || ""
 }
@@ -106,6 +114,7 @@ function getInProcessCoreStatus(): GravityCoreBridgeStatus {
       skills: "/api/core/skills",
       tools: "/api/core/tools",
       runTool: "/api/core/tools/run",
+      approvals: "/api/core/approvals",
       assistant: "/api/assistant/chat",
       memorySave: "/api/memory/save",
       memorySearch: "/api/memory/search",
@@ -386,6 +395,95 @@ export async function getGravityCoreAuditEvents(limit = 50): Promise<GravityCore
       ok: false,
       status: 502,
       error: error instanceof Error ? error.message : "Unable to reach Grav Core audit.",
+    }
+  }
+}
+
+export async function listGravityCoreApprovals(input: { status?: string; limit?: number } = {}): Promise<GravityCoreApprovalBridgeResult> {
+  const baseUrl = getCoreBaseUrl()
+
+  if (!baseUrl) {
+    return {
+      attempted: false,
+      ok: false,
+      status: 0,
+      error: "GRAVITY_CORE_BASE_URL is not set.",
+    }
+  }
+
+  const status = input.status || "pending"
+  const limit = input.limit || 100
+
+  try {
+    const response = await fetch(`${baseUrl}/approvals?status=${encodeURIComponent(status)}&limit=${encodeURIComponent(String(limit))}`, {
+      method: "GET",
+      cache: "no-store",
+    })
+    const payload = await readPayload(response)
+
+    return {
+      attempted: true,
+      ok: response.ok,
+      status: response.status,
+      payload,
+      error: response.ok
+        ? undefined
+        : typeof payload?.error === "string"
+          ? payload.error
+          : `Grav Core approvals failed with status ${response.status}.`,
+    }
+  } catch (error) {
+    return {
+      attempted: true,
+      ok: false,
+      status: 502,
+      error: error instanceof Error ? error.message : "Unable to reach Grav Core approvals.",
+    }
+  }
+}
+
+export async function mutateGravityCoreApproval(
+  id: string,
+  action: "approve" | "reject" | "execute",
+  input: Record<string, unknown> = {}
+): Promise<GravityCoreApprovalBridgeResult> {
+  const baseUrl = getCoreBaseUrl()
+
+  if (!baseUrl) {
+    return {
+      attempted: false,
+      ok: false,
+      status: 0,
+      error: "GRAVITY_CORE_BASE_URL is not set.",
+    }
+  }
+
+  try {
+    const response = await fetch(`${baseUrl}/approvals/${encodeURIComponent(id)}/${action}`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(input),
+      cache: "no-store",
+    })
+    const payload = await readPayload(response)
+
+    return {
+      attempted: true,
+      ok: response.ok,
+      status: response.status,
+      payload,
+      error: response.ok
+        ? undefined
+        : typeof payload?.error === "string"
+          ? payload.error
+          : `Grav Core approval ${action} failed with status ${response.status}.`,
+    }
+  } catch (error) {
+    return {
+      attempted: true,
+      ok: false,
+      status: 502,
+      error: error instanceof Error ? error.message : `Unable to ${action} Grav Core approval.`,
     }
   }
 }
