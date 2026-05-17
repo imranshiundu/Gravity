@@ -14,6 +14,7 @@ import {
   writeAuditEvent,
 } from "./audit.js"
 import { listCoreCapabilities, resolveCoreCapabilities } from "./core-capabilities.js"
+import { createCorePlan, runCorePlan } from "./core-planner.js"
 import { coreWorkflowDefinitions, listCoreWorkflows, runCoreWorkflow } from "./core-workflows.js"
 import { sendJson, readJsonBody } from "./http.js"
 import { searchMempalaceMemories } from "./memory.js"
@@ -128,6 +129,50 @@ const server = createServer(async (request, response) => {
         includeWorkflows: body?.includeWorkflows !== false,
       },
       outputSummary: result.ok ? `Selected ${result.selected.length} capability candidates.` : result.error || "Capability resolver returned failure.",
+    })
+
+    sendJson(response, result.status, { ...result, auditEventId: auditEvent.id })
+    return
+  }
+
+  if (request.method === "POST" && url.pathname === "/plan") {
+    const body = await readJsonBody(request).catch(() => ({}))
+    const result = createCorePlan(body && typeof body === "object" ? body : {}, capabilityGraphInput())
+
+    const auditEvent = await writeAuditEvent({
+      eventType: "core.plan.create",
+      summary: result.ok ? "Core plan created." : "Core plan creation failed.",
+      moduleId: "core",
+      toolName: "core.plan.create",
+      risk: "safe",
+      inputRedacted: {
+        hasIntent: Boolean(body?.intent || body?.query),
+        safeOnly: body?.safeOnly !== false,
+        includeWorkflows: body?.includeWorkflows !== false,
+      },
+      outputSummary: result.ok ? `Plan ${result.plan.id} created with ${result.plan.summary.totalSteps} step(s).` : result.error || "Plan creation returned failure.",
+    })
+
+    sendJson(response, result.status, { ...result, auditEventId: auditEvent.id })
+    return
+  }
+
+  if (request.method === "POST" && url.pathname === "/plan/run") {
+    const body = await readJsonBody(request).catch(() => ({}))
+    const result = await runCorePlan(body && typeof body === "object" ? body : {}, capabilityGraphInput(), runGravityTool)
+
+    const auditEvent = await writeAuditEvent({
+      eventType: "core.plan.run",
+      summary: result.ok ? "Core plan run completed." : "Core plan run failed.",
+      moduleId: "core",
+      toolName: "core.plan.run",
+      risk: "safe",
+      inputRedacted: {
+        hasPlan: Boolean(body?.plan),
+        hasIntent: Boolean(body?.intent || body?.query),
+        safeOnly: body?.safeOnly !== false,
+      },
+      outputSummary: result.ok ? `Plan run completed ${result.summary?.completedSteps || 0}/${result.summary?.totalSteps || 0} step(s).` : result.error || "Plan run returned failure.",
     })
 
     sendJson(response, result.status, { ...result, auditEventId: auditEvent.id })
@@ -351,6 +396,8 @@ const server = createServer(async (request, response) => {
       "POST /memory/search",
       "POST /tools/run",
       "POST /capabilities/resolve",
+      "POST /plan",
+      "POST /plan/run",
       "POST /workflows/run",
       "POST /approvals/:id/approve",
       "POST /approvals/:id/reject",
