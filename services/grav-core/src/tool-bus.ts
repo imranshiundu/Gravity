@@ -6,8 +6,8 @@ import { getOllamaInventory, listOllamaModels, runOllamaChatAdapter, runOllamaGe
 import { getOrchestrationInventory, runOrchestrationWorkflow } from "./adapters/orchestration-adapter.js"
 import { getVoiceInventory, createVoiceSession, runVoiceStt, runVoiceTts } from "./adapters/voice-adapter.js"
 import { readAuditEvents } from "./audit.js"
+import { getCodingExecutionContracts, runAiderAction, runClawAction, runOpenHandsAction } from "./coding-execution.js"
 import {
-  getCodingExecutionUnavailable,
   getCodingModuleInventory,
   readCodingModuleFile,
   searchCodingModules,
@@ -66,6 +66,34 @@ const approvedServiceInputSchema = {
     body: { type: "object" },
   },
 }
+const codingExecutionContractSchema = {
+  type: "object",
+  properties: { moduleId: { type: "string", enum: ["coding-openhands", "coding-aider", "coding-claw"] } },
+}
+const aiderRunSchema = {
+  type: "object",
+  properties: {
+    approved: { type: "boolean" },
+    action: { type: "string", enum: ["dry-run"] },
+    prompt: { type: "string" },
+    message: { type: "string" },
+    cwd: { type: "string" },
+    files: { type: "array", items: { type: "string" } },
+    model: { type: "string" },
+    timeoutMs: { type: "number" },
+  },
+}
+const openHandsRunSchema = {
+  type: "object",
+  properties: {
+    approved: { type: "boolean" },
+    action: { type: "string", enum: ["proxy"] },
+    method: { type: "string" },
+    path: { type: "string" },
+    body: { type: "object" },
+    timeoutMs: { type: "number" },
+  },
+}
 
 export const gravityCoreTools: GravityTool[] = [
   tool("core.status", "Core status", "Return Gravity Core status, module registry, provider registry, and route map.", "core"),
@@ -111,9 +139,10 @@ export const gravityCoreTools: GravityTool[] = [
     required: ["query"],
   }),
   tool("coding.modules.read", "Read coding module file", "Read a small text/code file only from modules/coding-openhands, modules/coding-aider, or modules/coding-claw. Credential-style files are blocked.", "coding", "safe", false, safeReadSchema),
-  tool("coding.openhands.run", "Run OpenHands action", "Approval-gated placeholder for future OpenHands execution. Currently returns 501 until the real module contract and sandbox policy are reviewed.", "coding-openhands", "dangerous", true, approvedServiceInputSchema),
-  tool("coding.aider.run", "Run Aider action", "Approval-gated placeholder for future Aider execution. Currently returns 501 until the real CLI contract and edit policy are reviewed.", "coding-aider", "dangerous", true, approvedServiceInputSchema),
-  tool("coding.claw.run", "Run Claw action", "Approval-gated placeholder for future Claw execution. Currently returns 501 until the real module contract and sandbox policy are reviewed.", "coding-claw", "dangerous", true, approvedServiceInputSchema),
+  tool("coding.execution.contracts", "Inspect coding execution contracts", "Return the reviewed execution contracts for OpenHands, Aider, and Claw, including required envs, supported actions, and safety policy.", "coding", "safe", false, codingExecutionContractSchema),
+  tool("coding.openhands.run", "Run OpenHands action", "Approval-gated OpenHands service proxy. Requires GRAVITY_OPENHANDS_BASE_URL and only allows reviewed route prefixes. Core does not start OpenHands or fake success.", "coding-openhands", "dangerous", true, openHandsRunSchema),
+  tool("coding.aider.run", "Run Aider dry-run", "Approval-gated Aider dry-run through the real modules/coding-aider CLI contract. Real write/edit mode is still unavailable.", "coding-aider", "dangerous", true, aiderRunSchema),
+  tool("coding.claw.run", "Run Claw action", "Approval-gated Claw placeholder. Currently returns 501 until the real module route/CLI contract is verified.", "coding-claw", "dangerous", true, approvedServiceInputSchema),
 
   tool("defense.scan", "Run defensive scan", "Guarded defensive scan for secret risks, TODO markers, and large skipped files.", "defense"),
 
@@ -227,16 +256,20 @@ export async function runGravityTool(payload: CoreToolRunInput) {
       const result = await readCodingModuleFile({ file: getString(input.file) })
       return { ok: result.ok, status: result.status, tool: selectedTool, data: result }
     }
+    if (selectedTool.name === "coding.execution.contracts") {
+      const result = getCodingExecutionContracts({ moduleId: getString(input.moduleId) || undefined })
+      return { ok: result.ok, status: result.status, tool: selectedTool, data: result, error: result.ok ? undefined : result.error }
+    }
     if (selectedTool.name === "coding.openhands.run") {
-      const result = getCodingExecutionUnavailable("coding-openhands", selectedTool.name)
+      const result = await runOpenHandsAction(input)
       return { ok: result.ok, status: result.status, tool: selectedTool, data: result, error: result.error }
     }
     if (selectedTool.name === "coding.aider.run") {
-      const result = getCodingExecutionUnavailable("coding-aider", selectedTool.name)
+      const result = await runAiderAction(input)
       return { ok: result.ok, status: result.status, tool: selectedTool, data: result, error: result.error }
     }
     if (selectedTool.name === "coding.claw.run") {
-      const result = getCodingExecutionUnavailable("coding-claw", selectedTool.name)
+      const result = await runClawAction(input)
       return { ok: result.ok, status: result.status, tool: selectedTool, data: result, error: result.error }
     }
 
