@@ -1,20 +1,25 @@
-import { getUnifiedModuleInventory } from "../module-bindings.js"
+import {
+  getOrchestrationModuleInventory,
+  REVIEWED_ORCHESTRATION_READ_PATH_PREFIXES,
+  REVIEWED_ORCHESTRATION_WORKFLOW_PATH_PREFIXES,
+} from "../orchestration-module.js"
 import { probeModuleService, proxyModuleService, type ServiceAdapterInput } from "./service-adapters.js"
 
-const config = {
+const workflowConfig = {
   moduleId: "orchestration",
   envName: "GRAVITY_ORCHESTRATION_BASE_URL",
   defaultPath: "/workflow/run",
-  allowedPathPrefixes: ["/", "/health", "/status", "/agents", "/tools", "/workflows", "/workflow", "/api"],
+  defaultMethod: "POST",
+  allowedPathPrefixes: [...REVIEWED_ORCHESTRATION_WORKFLOW_PATH_PREFIXES],
 }
 
 export async function getOrchestrationInventory() {
-  const source = await getUnifiedModuleInventory({ moduleId: "orchestration", includeRoutes: true })
+  const source = await getOrchestrationModuleInventory({ includeRoutes: true, includeFiles: false })
   const service = await probeModuleService({
-    moduleId: config.moduleId,
-    envName: config.envName,
-    allowedPathPrefixes: config.allowedPathPrefixes,
-    probePaths: ["/health", "/status", "/agents", "/workflows", "/tools"],
+    moduleId: workflowConfig.moduleId,
+    envName: workflowConfig.envName,
+    allowedPathPrefixes: [...REVIEWED_ORCHESTRATION_READ_PATH_PREFIXES],
+    probePaths: ["/health", "/status", "/agents", "/workflows", "/tools", "/runs"],
   })
 
   return {
@@ -22,11 +27,18 @@ export async function getOrchestrationInventory() {
     status: 200,
     moduleId: "orchestration",
     serviceCapability: "agents, workflows, handoffs, guardrails, tools",
+    reviewedProxyContract: {
+      readAllowedPathPrefixes: [...REVIEWED_ORCHESTRATION_READ_PATH_PREFIXES],
+      workflowAllowedPathPrefixes: [...REVIEWED_ORCHESTRATION_WORKFLOW_PATH_PREFIXES],
+      workflowDefaultPath: "/workflow/run",
+      approvalRequiredForWorkflowRun: true,
+      removedBroadPrefixes: ["/", "/api"],
+    },
     source,
     service,
   }
 }
 
 export async function runOrchestrationWorkflow(input: ServiceAdapterInput = {}) {
-  return proxyModuleService({ ...config, defaultPath: "/workflow/run", defaultMethod: "POST" }, input)
+  return proxyModuleService(workflowConfig, input)
 }
