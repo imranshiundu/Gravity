@@ -33,9 +33,13 @@ GET  /providers
 GET  /skills
 GET  /tools
 GET  /audit?limit=50
+GET  /approvals?status=pending&limit=100
 POST /chat
 POST /memory/search
 POST /tools/run
+POST /approvals/:id/approve
+POST /approvals/:id/reject
+POST /approvals/:id/execute
 ```
 
 ## Module skill/tool contract
@@ -102,7 +106,9 @@ coding.aider.run     -> approval required, returns 501 until Aider CLI/edit cont
 coding.claw.run      -> approval required, returns 501 until Claw contract/sandbox is reviewed
 ```
 
-Approval-gated tools must be called with explicit operator approval:
+Approval-gated tools should normally run through the approval queue, not by directly adding `approved: true` from the UI.
+
+Direct tool-run approval remains available for controlled API use:
 
 ```json
 {
@@ -117,16 +123,64 @@ Approval-gated tools must be called with explicit operator approval:
 }
 ```
 
+## Persistent approval queue
+
+Risky chat intents now create stored approval requests in Core instead of temporary UI-only cards.
+
+Default approval file:
+
+```text
+services/grav-core/.grav-core/approval-requests.json
+```
+
+Override location:
+
+```bash
+GRAV_CORE_DATA_DIR=/absolute/path/to/core-data
+```
+
+Routes:
+
+```text
+GET  /approvals?status=pending&limit=100
+POST /approvals/:id/approve
+POST /approvals/:id/reject
+POST /approvals/:id/execute
+```
+
+Statuses:
+
+```text
+pending
+approved
+rejected
+expired
+executed
+failed
+```
+
+`POST /approvals/:id/execute` approves pending requests and executes the stored tool call through the Core tool bus with `approved: true`. It then marks the approval as `executed` or `failed` and writes an audit event.
+
+Web bridge routes:
+
+```text
+GET  /api/core/approvals
+POST /api/core/approvals/:id/execute
+POST /api/core/approvals/:id/reject
+```
+
+The `/system` dashboard now has a Core approval queue panel. The Grav chat approval card also runs through `/api/core/approvals/:id/execute`, not directly through `/api/core/tools/run`.
+
 ## Chat
 
-`POST /chat` validates the request, checks whether the latest user message maps to a safe Core tool intent, and then either runs the safe tool, returns an approval request for risky tools, or continues into memory-backed Ollama chat.
+`POST /chat` validates the request, checks whether the latest user message maps to a safe Core tool intent, and then either runs the safe tool, stores an approval request for risky tools, or continues into memory-backed Ollama chat.
 
 The chat path is intentionally conservative:
 
 1. Normalize messages.
 2. Detect deterministic tool intent.
 3. Execute only tools marked `safe` and not `requiresApproval`.
-4. Return `approvalRequests` for risky or approval-gated tools.
+4. Store `approvalRequests` for risky or approval-gated tools.
 5. If no tool intent is detected, search MemPalace and call Ollama.
 6. Write one redacted audit event for every attempt.
 
@@ -141,9 +195,9 @@ list Ollama models             -> ollama.models
 check gateway status           -> gateway.status
 scan defense risks             -> defense.scan
 inspect coding modules         -> coding.modules.inventory
-send a channel message         -> approval request for channels.send
-run orchestration workflow     -> approval request for orchestration.workflow.run
-run Aider/OpenHands/Claw       -> approval request, then still 501 until sandbox contract is reviewed
+send a channel message         -> stored approval request for channels.send
+run orchestration workflow     -> stored approval request for orchestration.workflow.run
+run Aider/OpenHands/Claw       -> stored approval request, then still 501 until sandbox contract is reviewed
 ```
 
 Tool-use chat responses include:
@@ -166,7 +220,7 @@ Tool-use chat responses include:
 }
 ```
 
-Approval responses include:
+Approval responses include persisted approval metadata:
 
 ```json
 {
@@ -176,8 +230,10 @@ Approval responses include:
   "mode": "tool-use",
   "approvalRequests": [
     {
+      "id": "approval_..._channels_send",
       "toolName": "channels.send",
       "risk": "medium",
+      "status": "pending",
       "summary": "Approval required for channels.send",
       "proposedInput": {}
     }
@@ -462,7 +518,7 @@ Override location:
 GRAV_CORE_DATA_DIR=/absolute/path/to/core-data
 ```
 
-Audit events intentionally store redacted input summaries instead of raw full chat transcripts. Tool runs also write audit events.
+Audit events intentionally store redacted input summaries instead of raw full chat transcripts. Tool runs also write audit events. Approval queue actions also write audit events.
 
 Chat-triggered tool use is summarized in audit output with the selected tool, intent, execution state, approval state, and approval count.
 
@@ -485,6 +541,9 @@ GET  /api/core/tools
 POST /api/core/tools/run
 POST /api/core/chat
 GET  /api/core/audit?limit=50
+GET  /api/core/approvals
+POST /api/core/approvals/:id/execute
+POST /api/core/approvals/:id/reject
 ```
 
 The existing web tool runner bridge `POST /api/core/tools/run` automatically forwards these tools to Core when `GRAVITY_CORE_BASE_URL` is configured.
@@ -495,7 +554,9 @@ Connected through Core:
 
 - assistant chat through Core when `GRAVITY_CORE_BASE_URL` is configured
 - deterministic assistant tool-use routing for safe Core tools
-- assistant approval-request responses for risky/approval-gated tools
+- persistent assistant approval requests for risky/approval-gated tools
+- Core approval queue list/reject/execute routes
+- `/system` approval queue UI
 - assistant chat memory context injection through `modules/memory` MemPalace
 - Core tool/skill listing
 - Core tool runner
@@ -522,4 +583,3 @@ Still missing deeper module binding:
 - coding sandbox, command allowlist, rollback, and write-policy enforcement
 - module-native service startup commands
 - assistant multi-step tool planning beyond deterministic single-tool intent
-- UI approval queue for approvalRequests
