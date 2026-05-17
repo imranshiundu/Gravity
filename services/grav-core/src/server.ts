@@ -13,6 +13,7 @@ import {
   summarizeChatOutput,
   writeAuditEvent,
 } from "./audit.js"
+import { listCoreWorkflows, runCoreWorkflow } from "./core-workflows.js"
 import { sendJson, readJsonBody } from "./http.js"
 import { searchMempalaceMemories } from "./memory.js"
 import { runOllamaChat } from "./ollama.js"
@@ -99,6 +100,32 @@ const server = createServer(async (request, response) => {
       module: "memory",
       timestamp: new Date().toISOString(),
       ...result,
+    })
+    return
+  }
+
+  if (request.method === "POST" && url.pathname === "/workflows/run") {
+    const body = await readJsonBody(request).catch(() => ({}))
+    const result = await runCoreWorkflow(body && typeof body === "object" ? body : {}, runGravityTool)
+    const workflowId = typeof body?.workflowId === "string" ? body.workflowId : typeof body?.workflow === "string" ? body.workflow : "gravity.system.health_check"
+
+    const auditEvent = await writeAuditEvent({
+      eventType: "core.workflow.run",
+      summary: result.ok ? `Workflow ${workflowId} completed.` : `Workflow ${workflowId} failed.`,
+      moduleId: "core",
+      toolName: "core.workflow.run",
+      risk: "safe",
+      inputRedacted: {
+        workflowId,
+        hasInput: Boolean(body?.input),
+        approved: Boolean(body && typeof body === "object" && "approved" in body && body.approved === true),
+      },
+      outputSummary: result.ok ? "Core workflow returned success." : result.error || "Core workflow returned failure.",
+    })
+
+    sendJson(response, result.status, {
+      ...result,
+      auditEventId: auditEvent.id,
     })
     return
   }
@@ -239,6 +266,11 @@ const server = createServer(async (request, response) => {
     return
   }
 
+  if (url.pathname === "/workflows") {
+    sendJson(response, 200, listCoreWorkflows())
+    return
+  }
+
   if (url.pathname === "/providers") {
     sendJson(response, 200, {
       ok: true,
@@ -276,11 +308,13 @@ const server = createServer(async (request, response) => {
       "/providers",
       "/skills",
       "/tools",
+      "/workflows",
       "/audit",
       "/approvals",
       "POST /chat",
       "POST /memory/search",
       "POST /tools/run",
+      "POST /workflows/run",
       "POST /approvals/:id/approve",
       "POST /approvals/:id/reject",
       "POST /approvals/:id/execute",
