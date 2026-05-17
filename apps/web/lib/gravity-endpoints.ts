@@ -9,6 +9,9 @@ export const gravityEndpoints = {
     tools: "/api/core/tools",
     runTool: "/api/core/tools/run",
     audit: "/api/core/audit",
+    approvals: "/api/core/approvals",
+    approvalExecute: (id: string) => `/api/core/approvals/${encodeURIComponent(id)}/execute`,
+    approvalReject: (id: string) => `/api/core/approvals/${encodeURIComponent(id)}/reject`,
   },
   runtime: {
     ollamaStatus: "/api/ollama/status",
