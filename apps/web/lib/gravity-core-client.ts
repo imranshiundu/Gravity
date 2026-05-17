@@ -49,6 +49,14 @@ export type GravityCoreWorkflowRunInput = {
   input?: Record<string, unknown>
 }
 
+export type GravityCoreCapabilityResolveInput = {
+  intent?: string
+  query?: string
+  safeOnly?: boolean
+  includeWorkflows?: boolean
+  maxResults?: number
+}
+
 export type GravityCoreChatBridgeResult = {
   attempted: boolean
   ok: boolean
@@ -82,6 +90,14 @@ export type GravityCoreToolsBridgeResult = {
 }
 
 export type GravityCoreWorkflowBridgeResult = {
+  attempted: boolean
+  ok: boolean
+  status: number
+  payload?: unknown
+  error?: string
+}
+
+export type GravityCoreCapabilityBridgeResult = {
   attempted: boolean
   ok: boolean
   status: number
@@ -129,6 +145,8 @@ function getInProcessCoreStatus(): GravityCoreBridgeStatus {
       skills: "/api/core/skills",
       tools: "/api/core/tools",
       runTool: "/api/core/tools/run",
+      capabilities: "/api/core/capabilities",
+      resolveCapabilities: "/api/core/capabilities/resolve",
       workflows: "/api/core/workflows",
       runWorkflow: "/api/core/workflows/run",
       approvals: "/api/core/approvals",
@@ -371,6 +389,81 @@ export async function runGravityCoreTool(
       ok: false,
       status: 502,
       error: error instanceof Error ? error.message : "Unable to reach Grav Core tool runner.",
+    }
+  }
+}
+
+export async function getGravityCoreCapabilities(): Promise<GravityCoreCapabilityBridgeResult> {
+  const baseUrl = getCoreBaseUrl()
+
+  if (!baseUrl) {
+    return {
+      attempted: false,
+      ok: false,
+      status: 0,
+      error: "GRAVITY_CORE_BASE_URL is not set.",
+    }
+  }
+
+  try {
+    const response = await fetch(`${baseUrl}/capabilities`, { method: "GET", cache: "no-store" })
+    const payload = await readPayload(response)
+    return {
+      attempted: true,
+      ok: response.ok,
+      status: response.status,
+      payload,
+      error: response.ok ? undefined : `Grav Core capabilities failed with status ${response.status}.`,
+    }
+  } catch (error) {
+    return {
+      attempted: true,
+      ok: false,
+      status: 502,
+      error: error instanceof Error ? error.message : "Unable to reach Grav Core capabilities.",
+    }
+  }
+}
+
+export async function resolveGravityCoreCapabilities(
+  input: GravityCoreCapabilityResolveInput
+): Promise<GravityCoreCapabilityBridgeResult> {
+  const baseUrl = getCoreBaseUrl()
+
+  if (!baseUrl) {
+    return {
+      attempted: false,
+      ok: false,
+      status: 0,
+      error: "GRAVITY_CORE_BASE_URL is not set.",
+    }
+  }
+
+  try {
+    const response = await fetch(`${baseUrl}/capabilities/resolve`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(input),
+      cache: "no-store",
+    })
+    const payload = await readPayload(response)
+    return {
+      attempted: true,
+      ok: response.ok,
+      status: response.status,
+      payload,
+      error: response.ok
+        ? undefined
+        : typeof payload?.error === "string"
+          ? payload.error
+          : `Grav Core capability resolution failed with status ${response.status}.`,
+    }
+  } catch (error) {
+    return {
+      attempted: true,
+      ok: false,
+      status: 502,
+      error: error instanceof Error ? error.message : "Unable to reach Grav Core capability resolver.",
     }
   }
 }
