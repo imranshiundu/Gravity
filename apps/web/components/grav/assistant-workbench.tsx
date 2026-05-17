@@ -58,6 +58,7 @@ type ApprovalRequest = {
   summary: string
   reason: string
   proposedInput: unknown
+  status?: "pending" | "approved" | "rejected" | "expired" | "executed" | "failed"
   expiresAt?: string
 }
 
@@ -183,34 +184,23 @@ export function AssistantWorkbench() {
       [request.id]: {
         approvalId: request.id,
         state: "running",
-        message: `Running ${request.toolName} with operator approval...`,
+        message: `Executing stored approval ${request.id} for ${request.toolName}...`,
       },
     }))
 
     try {
-      const proposedInput =
-        request.proposedInput && typeof request.proposedInput === "object" && !Array.isArray(request.proposedInput)
-          ? (request.proposedInput as Record<string, unknown>)
-          : { body: { proposedInput: request.proposedInput } }
-
-      const response = await fetch(gravityEndpoints.core.runTool, {
+      const response = await fetch(gravityEndpoints.core.approvalExecute(request.id), {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
         },
-        body: JSON.stringify({
-          toolName: request.toolName,
-          input: {
-            ...proposedInput,
-            approved: true,
-          },
-        }),
+        body: JSON.stringify({ userId: "web-operator" }),
       })
 
       const payload = await response.json()
 
       if (!response.ok || payload?.ok === false) {
-        throw new Error(payload?.error || payload?.data?.error || `${request.toolName} failed after approval.`)
+        throw new Error(payload?.error || payload?.result?.error || `${request.toolName} failed after approval.`)
       }
 
       setApprovalExecutions((current) => ({
@@ -218,7 +208,7 @@ export function AssistantWorkbench() {
         [request.id]: {
           approvalId: request.id,
           state: "approved",
-          message: `${request.toolName} executed after approval.`,
+          message: `${request.toolName} executed from the persisted Core approval queue.`,
           result: payload,
         },
       }))
@@ -324,9 +314,7 @@ export function AssistantWorkbench() {
                 disabled={!connected || status?.ollama.models.length === 0}
               >
                 <SelectTrigger className="w-full justify-between rounded-4xl">
-                  <SelectValue>
-                    {selectedModel || "No model detected"}
-                  </SelectValue>
+                  <SelectValue>{selectedModel || "No model detected"}</SelectValue>
                 </SelectTrigger>
                 <SelectContent align="start" className="min-w-72">
                   <SelectGroup>
@@ -359,11 +347,7 @@ export function AssistantWorkbench() {
                   <IconPlugConnectedX className="size-4 text-amber-600" />
                 )}
                 <span className="text-sm">
-                  {isRefreshing
-                    ? "Checking runtime"
-                    : connected
-                      ? "Ollama connected"
-                      : "Ollama unavailable"}
+                  {isRefreshing ? "Checking runtime" : connected ? "Ollama connected" : "Ollama unavailable"}
                 </span>
               </div>
             </div>
@@ -424,7 +408,11 @@ export function AssistantWorkbench() {
                           {message.approvalRequests.map((request) => {
                             const execution = approvalExecutions[request.id]
                             const disabled =
-                              request.risk === "disallowed" || execution?.state === "running" || execution?.state === "approved"
+                              request.risk === "disallowed" ||
+                              request.status === "expired" ||
+                              request.status === "rejected" ||
+                              execution?.state === "running" ||
+                              execution?.state === "approved"
 
                             return (
                               <div key={request.id} className="rounded-3xl border border-amber-500/25 bg-amber-500/10 p-3">
@@ -432,9 +420,8 @@ export function AssistantWorkbench() {
                                   <div className="flex flex-wrap items-center gap-2">
                                     <IconShieldCheck className="size-4 text-amber-700 dark:text-amber-300" />
                                     <span className="font-medium">{request.summary}</span>
-                                    <Badge variant={getRiskBadgeVariant(request.risk)}>
-                                      {request.risk}
-                                    </Badge>
+                                    <Badge variant={getRiskBadgeVariant(request.risk)}>{request.risk}</Badge>
+                                    {request.status ? <Badge variant="outline">{request.status}</Badge> : null}
                                   </div>
                                   <Button
                                     size="sm"
@@ -448,24 +435,21 @@ export function AssistantWorkbench() {
                                       <IconCheck className="size-4" />
                                     ) : null}
                                     {execution?.state === "running"
-                                      ? "Approving"
+                                      ? "Executing"
                                       : execution?.state === "approved"
-                                        ? "Approved"
+                                        ? "Executed"
                                         : request.risk === "disallowed"
                                           ? "Blocked"
                                           : "Approve & run"}
                                   </Button>
                                 </div>
                                 <p className="mt-2 text-xs text-muted-foreground">{request.reason}</p>
+                                <p className="mt-1 break-all text-[11px] text-muted-foreground">Approval ID: {request.id}</p>
                                 {request.expiresAt ? (
-                                  <p className="mt-1 text-[11px] text-muted-foreground">
-                                    Expires: {request.expiresAt}
-                                  </p>
+                                  <p className="mt-1 text-[11px] text-muted-foreground">Expires: {request.expiresAt}</p>
                                 ) : null}
                                 <details className="mt-2 rounded-2xl bg-background/70 px-3 py-2 text-xs">
-                                  <summary className="cursor-pointer font-medium text-muted-foreground">
-                                    Proposed input
-                                  </summary>
+                                  <summary className="cursor-pointer font-medium text-muted-foreground">Proposed input</summary>
                                   <pre className="mt-2 max-h-56 overflow-auto whitespace-pre-wrap text-[11px] text-muted-foreground">
                                     {stringifyPreview(request.proposedInput, 1200)}
                                   </pre>
@@ -495,18 +479,9 @@ export function AssistantWorkbench() {
               disabled={isLoading}
             />
             <div className="flex items-center justify-between gap-3">
-              <div className="text-xs text-muted-foreground">
-                Assistant endpoint: `{gravityEndpoints.assistant.chat}`
-              </div>
-              <Button
-                onClick={handleSend}
-                disabled={!prompt.trim() || isLoading}
-              >
-                {isLoading ? (
-                  <IconLoader2 className="size-4 animate-spin" />
-                ) : (
-                  <IconPlayerPlayFilled className="size-4" />
-                )}
+              <div className="text-xs text-muted-foreground">Assistant endpoint: `{gravityEndpoints.assistant.chat}`</div>
+              <Button onClick={handleSend} disabled={!prompt.trim() || isLoading}>
+                {isLoading ? <IconLoader2 className="size-4 animate-spin" /> : <IconPlayerPlayFilled className="size-4" />}
                 {isLoading ? "Running" : "Send to Grav"}
               </Button>
             </div>
@@ -524,9 +499,7 @@ export function AssistantWorkbench() {
         <Card size="sm" className="border border-border/70 bg-card/85">
           <CardHeader>
             <CardTitle>Bridge status</CardTitle>
-            <CardDescription>
-              Gravity owns the interface. Engines stay behind Gravity endpoints.
-            </CardDescription>
+            <CardDescription>Gravity owns the interface. Engines stay behind Gravity endpoints.</CardDescription>
           </CardHeader>
           <CardContent className="space-y-3 text-sm">
             <div className="flex items-center justify-between gap-4">
@@ -539,13 +512,15 @@ export function AssistantWorkbench() {
             </div>
             <div className="flex items-center justify-between gap-4">
               <span className="text-muted-foreground">Runtime</span>
-              <Badge variant={connected ? "secondary" : "outline"}>
-                {status?.primaryRuntime ?? "ollama/core"}
-              </Badge>
+              <Badge variant={connected ? "secondary" : "outline"}>{status?.primaryRuntime ?? "ollama/core"}</Badge>
             </div>
             <div className="flex items-center justify-between gap-4">
               <span className="text-muted-foreground">Core tool runner</span>
               <span className="font-mono text-xs">{gravityEndpoints.core.runTool}</span>
+            </div>
+            <div className="flex items-center justify-between gap-4">
+              <span className="text-muted-foreground">Approval queue</span>
+              <span className="font-mono text-xs">{gravityEndpoints.core.approvals}</span>
             </div>
             <div className="flex items-center justify-between gap-4">
               <span className="text-muted-foreground">Ollama endpoint</span>
@@ -558,18 +533,15 @@ export function AssistantWorkbench() {
           <CardHeader>
             <CardTitle>Approval behavior</CardTitle>
             <CardDescription>
-              Risky module actions are shown here first. Gravity only runs them
-              after you approve the exact proposed tool call.
+              Risky module actions are stored in Core first. Gravity only executes them from the persisted approval queue.
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-3 text-sm text-muted-foreground">
             <div className="rounded-3xl border border-border/70 bg-background/70 px-4 py-3">
-              Safe tool intents run directly: status, inventory, audit, memory,
-              model list, gateway status, defense scan, and coding inventory.
+              Safe tool intents run directly: status, inventory, audit, memory, model list, gateway status, defense scan, and coding inventory.
             </div>
             <div className="rounded-3xl border border-border/70 bg-background/70 px-4 py-3">
-              Approval-gated tools: channels.send, gateway.proxy,
-              orchestration.workflow.run, and coding execution tools.
+              Approval-gated tools: channels.send, gateway.proxy, orchestration.workflow.run, and coding execution tools.
             </div>
           </CardContent>
         </Card>
@@ -577,9 +549,7 @@ export function AssistantWorkbench() {
         <Card size="sm" className="border border-border/70 bg-card/85">
           <CardHeader>
             <CardTitle>Available models</CardTitle>
-            <CardDescription>
-              First-pass Gravity runtime inventory from the external Ollama API.
-            </CardDescription>
+            <CardDescription>First-pass Gravity runtime inventory from the external Ollama API.</CardDescription>
           </CardHeader>
           <CardContent className="space-y-3">
             {(status?.ollama.models.length ?? 0) === 0 ? (
@@ -588,14 +558,9 @@ export function AssistantWorkbench() {
               </div>
             ) : (
               status?.ollama.models.slice(0, 8).map((model) => (
-                <div
-                  key={model.name}
-                  className="rounded-3xl border border-border/70 bg-background/70 px-4 py-3"
-                >
+                <div key={model.name} className="rounded-3xl border border-border/70 bg-background/70 px-4 py-3">
                   <div className="font-medium">{model.name}</div>
-                  <div className="mt-1 text-xs text-muted-foreground">
-                    {formatBytes(model.size)}
-                  </div>
+                  <div className="mt-1 text-xs text-muted-foreground">{formatBytes(model.size)}</div>
                 </div>
               ))
             )}
