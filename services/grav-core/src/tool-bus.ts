@@ -12,6 +12,15 @@ import {
   readCodingModuleFile,
   searchCodingModules,
 } from "./coding-modules.js"
+import {
+  getCoreModuleInventory,
+  getDefenseModuleInventory,
+  readCoreModuleFile,
+  readDefenseModuleFile,
+  scanDefenseModuleFindings,
+  searchCoreModule,
+  searchDefenseModule,
+} from "./core-defense-modules.js"
 import { searchMempalaceMemories } from "./memory.js"
 import { getUnifiedModuleInventory, readUnifiedModuleFile, searchUnifiedModules } from "./module-bindings.js"
 import { getGravCoreStatus, gravCoreModules } from "./registry.js"
@@ -49,6 +58,8 @@ function tool(
 }
 
 const safeReadSchema = { type: "object", properties: { file: { type: "string" } }, required: ["file"] }
+const inventorySchema = { type: "object", properties: { includeFiles: { type: "boolean" }, includeRoutes: { type: "boolean" } } }
+const searchSchema = { type: "object", properties: { query: { type: "string" }, limit: { type: "number" } }, required: ["query"] }
 const serviceInputSchema = {
   type: "object",
   properties: {
@@ -102,6 +113,9 @@ export const gravityCoreTools: GravityTool[] = [
     type: "object",
     properties: { limit: { type: "number" } },
   }),
+  tool("core.module.inventory", "Core module inventory", "Inspect the real modules/core source tree for manifests, routes, contracts, configs, docs, and CLI/tooling signals.", "core-module", "safe", false, inventorySchema),
+  tool("core.module.search", "Search core module", "Search inside modules/core only without executing code or modifying files.", "core-module", "safe", false, searchSchema),
+  tool("core.module.read", "Read core module file", "Read a small text/code file from modules/core only. Credential-style files and path escapes are blocked.", "core-module", "safe", false, safeReadSchema),
   tool(
     "modules.inventory",
     "Inventory all module bindings",
@@ -139,12 +153,16 @@ export const gravityCoreTools: GravityTool[] = [
     required: ["query"],
   }),
   tool("coding.modules.read", "Read coding module file", "Read a small text/code file only from modules/coding-openhands, modules/coding-aider, or modules/coding-claw. Credential-style files are blocked.", "coding", "safe", false, safeReadSchema),
-  tool("coding.execution.contracts", "Inspect coding execution contracts", "Return the reviewed execution contracts for OpenHands, Aider, and Claw, including required envs, supported actions, and safety policy.", "coding", "safe", false, codingExecutionContractSchema),
+  tool("coding.execution.contracts", "Inspect coding execution contracts", "Return the reviewed execution contracts for OpenHands, Aider, and Claw, including required envs, supported actions, source verification, and safety policy.", "coding", "safe", false, codingExecutionContractSchema),
   tool("coding.openhands.run", "Run OpenHands action", "Approval-gated OpenHands service proxy. Requires GRAVITY_OPENHANDS_BASE_URL and only allows reviewed route prefixes. Core does not start OpenHands or fake success.", "coding-openhands", "dangerous", true, openHandsRunSchema),
   tool("coding.aider.run", "Run Aider dry-run", "Approval-gated Aider dry-run through the real modules/coding-aider CLI contract. Real write/edit mode is still unavailable.", "coding-aider", "dangerous", true, aiderRunSchema),
-  tool("coding.claw.run", "Run Claw action", "Approval-gated Claw placeholder. Currently returns 501 until the real module route/CLI contract is verified.", "coding-claw", "dangerous", true, approvedServiceInputSchema),
+  tool("coding.claw.run", "Run Claw action", "Approval-gated Claw execution contract check. Returns 404 when modules/coding-claw is missing and 501 when no reviewed CLI/API contract exists.", "coding-claw", "dangerous", true, approvedServiceInputSchema),
 
-  tool("defense.scan", "Run defensive scan", "Guarded defensive scan for secret risks, TODO markers, and large skipped files.", "defense"),
+  tool("defense.inventory", "Defense module inventory", "Inspect the real modules/defense source tree for manifests, routes, scanners, policy/config files, docs, and CLI/tooling signals.", "defense", "safe", false, inventorySchema),
+  tool("defense.search", "Search defense module", "Search inside modules/defense only without executing code or modifying files.", "defense", "safe", false, searchSchema),
+  tool("defense.read", "Read defense module file", "Read a small text/code file from modules/defense only. Credential-style files and path escapes are blocked.", "defense", "safe", false, safeReadSchema),
+  tool("defense.scan", "Run defensive scan", "Guarded defensive scan for secret risks, TODO markers, and large skipped files across the configured workspace.", "defense"),
+  tool("defense.module.scan", "Scan defense module findings", "Guarded defensive scan filtered to modules/defense findings only. Reports missing/no-finding states honestly.", "defense"),
 
   tool("channels.inventory", "Channels inventory", "Inspect channels module source and probe configured channel service routes.", "channels"),
   tool("channels.inbox", "Channels inbox", "Read inbox data through the configured channels module service.", "channels", "safe", false, serviceInputSchema),
@@ -222,6 +240,18 @@ export async function runGravityTool(payload: CoreToolRunInput) {
     if (selectedTool.name === "core.status") return { ok: true, status: 200, tool: selectedTool, data: getGravCoreStatus("standalone") }
     if (selectedTool.name === "core.modules.list") return { ok: true, status: 200, tool: selectedTool, data: gravCoreModules }
     if (selectedTool.name === "core.audit.read") return { ok: true, status: 200, tool: selectedTool, data: await readAuditEvents(normalizeLimit(input.limit)) }
+    if (selectedTool.name === "core.module.inventory") {
+      const result = await getCoreModuleInventory(input)
+      return { ok: result.ok, status: result.status, tool: selectedTool, data: result }
+    }
+    if (selectedTool.name === "core.module.search") {
+      const result = await searchCoreModule(input)
+      return { ok: result.ok, status: result.status, tool: selectedTool, data: result }
+    }
+    if (selectedTool.name === "core.module.read") {
+      const result = await readCoreModuleFile(input)
+      return { ok: result.ok, status: result.status, tool: selectedTool, data: result }
+    }
 
     if (selectedTool.name === "modules.inventory") {
       const result = await getUnifiedModuleInventory({ moduleId: getString(input.moduleId) || undefined, includeFiles: input.includeFiles === true, includeRoutes: input.includeRoutes !== false })
@@ -257,7 +287,7 @@ export async function runGravityTool(payload: CoreToolRunInput) {
       return { ok: result.ok, status: result.status, tool: selectedTool, data: result }
     }
     if (selectedTool.name === "coding.execution.contracts") {
-      const result = getCodingExecutionContracts({ moduleId: getString(input.moduleId) || undefined })
+      const result = await getCodingExecutionContracts({ moduleId: getString(input.moduleId) || undefined })
       return { ok: result.ok, status: result.status, tool: selectedTool, data: result, error: result.ok ? undefined : result.error }
     }
     if (selectedTool.name === "coding.openhands.run") {
@@ -273,8 +303,24 @@ export async function runGravityTool(payload: CoreToolRunInput) {
       return { ok: result.ok, status: result.status, tool: selectedTool, data: result, error: result.error }
     }
 
+    if (selectedTool.name === "defense.inventory") {
+      const result = await getDefenseModuleInventory(input)
+      return { ok: result.ok, status: result.status, tool: selectedTool, data: result }
+    }
+    if (selectedTool.name === "defense.search") {
+      const result = await searchDefenseModule(input)
+      return { ok: result.ok, status: result.status, tool: selectedTool, data: result }
+    }
+    if (selectedTool.name === "defense.read") {
+      const result = await readDefenseModuleFile(input)
+      return { ok: result.ok, status: result.status, tool: selectedTool, data: result }
+    }
     if (selectedTool.name === "defense.scan") {
       const result = await scanGravityWorkspace({ mode: "defense" })
+      return { ok: result.ok, status: result.ok ? 200 : result.status, tool: selectedTool, data: result }
+    }
+    if (selectedTool.name === "defense.module.scan") {
+      const result = await scanDefenseModuleFindings()
       return { ok: result.ok, status: result.ok ? 200 : result.status, tool: selectedTool, data: result }
     }
 
