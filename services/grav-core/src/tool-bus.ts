@@ -21,6 +21,7 @@ import {
   searchCoreModule,
   searchDefenseModule,
 } from "./core-defense-modules.js"
+import { getGatewayReviewedContract, readGatewayModuleFile, searchGatewayModule } from "./gateway-module.js"
 import { searchMempalaceMemories } from "./memory.js"
 import { getUnifiedModuleInventory, readUnifiedModuleFile, searchUnifiedModules } from "./module-bindings.js"
 import { getGravCoreStatus, gravCoreModules } from "./registry.js"
@@ -174,8 +175,11 @@ export const gravityCoreTools: GravityTool[] = [
   tool("voice.stt", "Voice STT", "Run speech-to-text through the configured voice module service.", "voice", "medium", false, serviceInputSchema),
 
   tool("gateway.inventory", "Gateway inventory", "Inspect gateway module source and probe configured gateway service routes.", "gateway"),
+  tool("gateway.contract", "Gateway reviewed contract", "Return the reviewed Gateway service contract, current source inventory, and allowed proxy path prefixes.", "gateway"),
+  tool("gateway.search", "Search gateway module", "Search inside modules/gateway only without executing code or modifying files.", "gateway", "safe", false, searchSchema),
+  tool("gateway.read", "Read gateway module file", "Read a small text/code file from modules/gateway only. Credential-style files and path escapes are blocked.", "gateway", "safe", false, safeReadSchema),
   tool("gateway.status", "Gateway status", "Read configured gateway service status.", "gateway", "safe", false, serviceInputSchema),
-  tool("gateway.proxy", "Gateway proxy", "Proxy a request through the configured gateway service. Approval is required.", "gateway", "medium", true, approvedServiceInputSchema),
+  tool("gateway.proxy", "Gateway proxy", "Proxy an approved request through the configured gateway service. Only reviewed path prefixes are allowed.", "gateway", "medium", true, approvedServiceInputSchema),
 
   tool("orchestration.inventory", "Orchestration inventory", "Inspect orchestration module source and probe configured agent/workflow service routes.", "orchestration"),
   tool("orchestration.workflow.run", "Run orchestration workflow", "Dispatch a workflow to the configured orchestration module service. Approval is required.", "orchestration", "medium", true, approvedServiceInputSchema),
@@ -349,6 +353,18 @@ export async function runGravityTool(payload: CoreToolRunInput) {
     }
 
     if (selectedTool.name === "gateway.inventory") return { ok: true, status: 200, tool: selectedTool, data: await getGatewayInventory() }
+    if (selectedTool.name === "gateway.contract") {
+      const result = await getGatewayReviewedContract()
+      return { ok: result.ok, status: result.status, tool: selectedTool, data: result }
+    }
+    if (selectedTool.name === "gateway.search") {
+      const result = await searchGatewayModule(input)
+      return { ok: result.ok, status: result.status, tool: selectedTool, data: result }
+    }
+    if (selectedTool.name === "gateway.read") {
+      const result = await readGatewayModuleFile(input)
+      return { ok: result.ok, status: result.status, tool: selectedTool, data: result }
+    }
     if (selectedTool.name === "gateway.status") {
       const result = await getGatewayStatus(input)
       return { ok: result.ok, status: result.status, tool: selectedTool, data: result }
