@@ -104,7 +104,7 @@ Approval-gated coding execution tools:
 ```text
 coding.openhands.run -> approved service proxy through GRAVITY_OPENHANDS_BASE_URL
 coding.aider.run     -> approved dry-run through modules/coding-aider CLI
-coding.claw.run      -> approved request returns honest 501 until Claw contract is verified
+coding.claw.run      -> approved request returns honest 404 if modules/coding-claw is missing, otherwise 501 until a Claw contract is verified
 ```
 
 Approval-gated tools should normally run through the approval queue, not by directly adding `approved: true` from the UI.
@@ -491,6 +491,8 @@ Execution contracts:
 }
 ```
 
+`coding.execution.contracts` includes `envState` and `sourceVerification` so the UI can distinguish configured, missing, available-unreviewed, and disabled states without guessing.
+
 Current known module signals from manifests and reviewed entry files:
 
 ```text
@@ -499,7 +501,7 @@ modules/coding-openhands/openhands/server/app.py     -> FastAPI app, /mcp mount,
 modules/coding-openhands/openhands/app_server/v1_router.py -> V1 router mounted at /api/v1
 modules/coding-aider/pyproject.toml                  -> Aider Python project, real CLI script: aider = aider.main:main
 modules/coding-aider/aider/args.py                   -> --message, --dry-run, --no-auto-commits, --no-auto-test, --no-auto-lint, --file/read controls
-modules/coding-claw                                  -> inventory is runtime-discovered; missing folders are reported as unavailable, not faked
+modules/coding-claw                                  -> no verified CLI/API contract in the current repo state; Core reports missing/unreviewed honestly at runtime
 ```
 
 ### Aider dry-run execution
@@ -592,7 +594,33 @@ If `GRAVITY_OPENHANDS_BASE_URL` is missing or the upstream service is unreachabl
 
 ### Claw
 
-`coding.claw.run` remains registered but returns `501` after approval until a stable Claw route/CLI contract is verified.
+`coding.claw.run` is not connected to execution yet.
+
+This pass checked the expected Claw module contract locations:
+
+```text
+modules/coding-claw/package.json
+modules/coding-claw/pyproject.toml
+modules/coding-claw/Cargo.toml
+modules/coding-claw/go.mod
+modules/coding-claw/README.md
+modules/coding-claw/src
+modules/coding-claw/bin
+modules/coding-claw/cli
+modules/coding-claw/index.ts
+modules/coding-claw/index.js
+modules/coding-claw/main.py
+```
+
+Current behavior:
+
+```text
+coding.execution.contracts -> reports Claw sourceVerification
+coding.claw.run            -> 404 when modules/coding-claw is missing
+coding.claw.run            -> 501 when the folder exists but no reviewed CLI/API contract exists
+```
+
+`GRAVITY_CLAW_BASE_URL` is intentionally not enough to enable Claw. Core needs reviewed route prefixes, command allowlists, workspace policy, rollback policy, and audit behavior first.
 
 ## Audit log
 
