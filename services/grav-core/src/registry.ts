@@ -18,7 +18,7 @@ export const gravCoreModules: GravityModule[] = [
     id: "core-bindings",
     name: "Universal Module Bindings",
     description: "Core-owned binding layer that inventories all known modules before routing, proxying, importing, or executing anything.",
-    sourcePath: "services/grav-core/src/module-bindings.ts, services/grav-core/src/core-defense-modules.ts, services/grav-core/src/gateway-module.ts, services/grav-core/src/adapters",
+    sourcePath: "services/grav-core/src/module-bindings.ts, services/grav-core/src/core-defense-modules.ts, services/grav-core/src/channels-module.ts, services/grav-core/src/gateway-module.ts, services/grav-core/src/adapters",
     connectionState: "connected",
     capabilities: [
       { id: "modules.inventory", title: "Inventory all modules", description: "Inspect every known module source path for manifests, route files, route hints, CLI entrypoints, tool files, config, docs, service envs, and dangerous actions.", status: "connected" },
@@ -89,12 +89,15 @@ export const gravCoreModules: GravityModule[] = [
     id: "channels",
     name: "Channels",
     description: "External channel service adapter contract.",
-    sourcePath: "modules/channels, services/grav-core/src/adapters/channels-adapter.ts",
+    sourcePath: "modules/channels, services/grav-core/src/channels-module.ts, services/grav-core/src/adapters/channels-adapter.ts",
     connectionState: "registered",
     capabilities: [
-      { id: "channels.inventory", title: "Channels inventory", description: "Inspect channels module source and probe configured channels service routes.", status: "connected" },
-      { id: "channels.inbox", title: "Channel inbox", description: "Proxy inbox reads/writes to GRAVITY_CHANNELS_BASE_URL when configured.", status: "registered" },
-      { id: "channels.send", title: "Channel send", description: "Proxy outbound channel send calls after operator approval.", status: "registered" },
+      { id: "channels.inventory", title: "Channels inventory", description: "Inspect channels module source and probe configured channels service routes with partitioned read/send contracts.", status: "connected" },
+      { id: "channels.contract", title: "Channels reviewed contract", description: "Return the reviewed channels contract, source inventory, env status, read path prefixes, send path prefixes, and safety policy.", status: "connected" },
+      { id: "channels.search", title: "Search channels module", description: "Search modules/channels only without executing module code.", status: "connected" },
+      { id: "channels.read", title: "Read channels module file", description: "Read small text/code files from modules/channels only with path and credential-file guards.", status: "connected" },
+      { id: "channels.inbox", title: "Channel inbox", description: "Proxy inbox reads to GRAVITY_CHANNELS_BASE_URL when configured. This tool forces GET semantics and only allows reviewed read paths: /health, /status, /providers, /plugins, and /inbox.", status: "registered" },
+      { id: "channels.send", title: "Channel send", description: "Proxy outbound channel send calls after operator approval. Only reviewed send paths are allowed: /send and /webhook.", status: "registered" },
     ],
   },
   {
