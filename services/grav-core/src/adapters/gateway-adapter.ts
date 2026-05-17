@@ -1,11 +1,12 @@
 import { getUnifiedModuleInventory } from "../module-bindings.js"
+import { REVIEWED_GATEWAY_PATH_PREFIXES } from "../gateway-module.js"
 import { probeModuleService, proxyModuleService, type ServiceAdapterInput } from "./service-adapters.js"
 
 const config = {
   moduleId: "gateway",
   envName: "GRAVITY_GATEWAY_BASE_URL",
   defaultPath: "/status",
-  allowedPathPrefixes: ["/", "/health", "/status", "/routes", "/proxy", "/api"],
+  allowedPathPrefixes: [...REVIEWED_GATEWAY_PATH_PREFIXES],
 }
 
 export async function getGatewayInventory() {
@@ -22,6 +23,12 @@ export async function getGatewayInventory() {
     status: 200,
     moduleId: "gateway",
     serviceCapability: "route-control, proxy, traffic governance",
+    reviewedProxyContract: {
+      allowedPathPrefixes: config.allowedPathPrefixes,
+      statusDefaultPath: "/status",
+      proxyDefaultPath: "/proxy",
+      approvalRequiredForProxy: true,
+    },
     source,
     service,
   }
