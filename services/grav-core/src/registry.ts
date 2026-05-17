@@ -27,6 +27,18 @@ export const gravCoreModules: GravityModule[] = [
     ],
   },
   {
+    id: "core-planner",
+    name: "Core Planner Dispatcher",
+    description: "Gravity-owned planner that turns resolved capabilities into safe executable plans and can run only safe non-approval steps through Core.",
+    sourcePath: "services/grav-core/src/core-planner.ts, services/grav-core/src/server.ts, apps/web/app/api/core/plan",
+    connectionState: "connected",
+    capabilities: [
+      { id: "core.plan.create", title: "Create Core plan", description: "Build a safe executable plan from the capability resolver without executing tools.", status: "connected" },
+      { id: "core.plan.run", title: "Run Core plan", description: "Execute only safe, non-approval plan steps through the existing tool bus. Unsafe/approval steps are skipped or blocked honestly.", status: "connected" },
+      { id: "core.plan.audit", title: "Plan audit events", description: "Audit Core plan creation and execution attempts as core.plan.create and core.plan.run.", status: "connected" },
+    ],
+  },
+  {
     id: "core-workflows",
     name: "Core Workflows",
     description: "Gravity-owned workflow runner that coordinates connected module tools through Core instead of inventing side systems.",
@@ -204,6 +216,8 @@ export function getGravCoreStatus(mode: GravityCoreStatus["mode"] = "standalone"
       runTool: "/tools/run",
       capabilities: "/capabilities",
       resolveCapabilities: "/capabilities/resolve",
+      plan: "/plan",
+      runPlan: "/plan/run",
       workflows: "/workflows",
       runWorkflow: "/workflows/run",
       chat: "/chat",
