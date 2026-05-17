@@ -18,7 +18,7 @@ export const gravCoreModules: GravityModule[] = [
     id: "core-bindings",
     name: "Universal Module Bindings",
     description: "Core-owned binding layer that inventories all known modules before routing, proxying, importing, or executing anything.",
-    sourcePath: "services/grav-core/src/module-bindings.ts, services/grav-core/src/core-defense-modules.ts, services/grav-core/src/channels-module.ts, services/grav-core/src/gateway-module.ts, services/grav-core/src/adapters",
+    sourcePath: "services/grav-core/src/module-bindings.ts, services/grav-core/src/core-defense-modules.ts, services/grav-core/src/channels-module.ts, services/grav-core/src/gateway-module.ts, services/grav-core/src/voice-module.ts, services/grav-core/src/adapters",
     connectionState: "connected",
     capabilities: [
       { id: "modules.inventory", title: "Inventory all modules", description: "Inspect every known module source path for manifests, route files, route hints, CLI entrypoints, tool files, config, docs, service envs, and dangerous actions.", status: "connected" },
@@ -75,14 +75,17 @@ export const gravCoreModules: GravityModule[] = [
   {
     id: "voice",
     name: "Voice",
-    description: "Realtime voice session contract.",
-    sourcePath: "modules/voice, services/grav-core/src/adapters/voice-adapter.ts",
+    description: "Realtime voice session, text-to-speech, and speech-to-text module contract.",
+    sourcePath: "modules/voice, services/grav-core/src/voice-module.ts, services/grav-core/src/adapters/voice-adapter.ts",
     connectionState: "registered",
     capabilities: [
-      { id: "voice.inventory", title: "Voice inventory", description: "Inspect voice module source and probe configured voice service routes.", status: "connected" },
-      { id: "voice.session", title: "Voice session", description: "Proxy or create realtime sessions when GRAVITY_VOICE_BASE_URL is configured.", status: "registered" },
-      { id: "voice.tts", title: "Voice TTS", description: "Proxy text-to-speech through the configured voice module service.", status: "registered" },
-      { id: "voice.stt", title: "Voice STT", description: "Proxy speech-to-text through the configured voice module service.", status: "registered" },
+      { id: "voice.inventory", title: "Voice inventory", description: "Inspect voice module source and probe configured voice service routes with partitioned session/TTS/STT contracts.", status: "connected" },
+      { id: "voice.contract", title: "Voice reviewed contract", description: "Return the reviewed voice contract, source inventory, env status, session path prefixes, TTS path prefixes, STT path prefixes, and safety policy.", status: "connected" },
+      { id: "voice.search", title: "Search voice module", description: "Search modules/voice only without executing module code.", status: "connected" },
+      { id: "voice.read", title: "Read voice module file", description: "Read small text/code files from modules/voice only with path and credential-file guards.", status: "connected" },
+      { id: "voice.session", title: "Voice session", description: "Proxy or create realtime sessions when GRAVITY_VOICE_BASE_URL is configured. Only reviewed session paths are allowed: /session and /sessions.", status: "registered" },
+      { id: "voice.tts", title: "Voice TTS", description: "Proxy text-to-speech through the configured voice module service. Only reviewed TTS paths are allowed: /tts.", status: "registered" },
+      { id: "voice.stt", title: "Voice STT", description: "Proxy speech-to-text through the configured voice module service. Only reviewed STT paths are allowed: /stt.", status: "registered" },
     ],
   },
   {
