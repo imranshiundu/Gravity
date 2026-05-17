@@ -13,12 +13,13 @@ import {
   summarizeChatOutput,
   writeAuditEvent,
 } from "./audit.js"
-import { listCoreWorkflows, runCoreWorkflow } from "./core-workflows.js"
+import { listCoreCapabilities, resolveCoreCapabilities } from "./core-capabilities.js"
+import { coreWorkflowDefinitions, listCoreWorkflows, runCoreWorkflow } from "./core-workflows.js"
 import { sendJson, readJsonBody } from "./http.js"
 import { searchMempalaceMemories } from "./memory.js"
 import { runOllamaChat } from "./ollama.js"
 import { getGravCoreStatus, gravCoreModules, gravCoreProviders } from "./registry.js"
-import { listGravitySkillsAndTools, runGravityTool } from "./tool-bus.js"
+import { gravityCoreTools, listGravitySkillsAndTools, runGravityTool } from "./tool-bus.js"
 
 const DEFAULT_PORT = 8765
 
@@ -32,6 +33,13 @@ function getPathId(pathname: string, prefix: string, suffix = "") {
   const withoutPrefix = pathname.slice(prefix.length)
   const withoutSuffix = suffix && withoutPrefix.endsWith(suffix) ? withoutPrefix.slice(0, -suffix.length) : withoutPrefix
   return decodeURIComponent(withoutSuffix.replace(/^\/+|\/+$/g, ""))
+}
+
+function capabilityGraphInput() {
+  return {
+    tools: gravityCoreTools,
+    workflows: coreWorkflowDefinitions,
+  }
 }
 
 const server = createServer(async (request, response) => {
@@ -101,6 +109,28 @@ const server = createServer(async (request, response) => {
       timestamp: new Date().toISOString(),
       ...result,
     })
+    return
+  }
+
+  if (request.method === "POST" && url.pathname === "/capabilities/resolve") {
+    const body = await readJsonBody(request).catch(() => ({}))
+    const result = resolveCoreCapabilities(body && typeof body === "object" ? body : {}, capabilityGraphInput())
+
+    const auditEvent = await writeAuditEvent({
+      eventType: "core.capabilities.resolve",
+      summary: result.ok ? "Capability resolution completed." : "Capability resolution failed.",
+      moduleId: "core",
+      toolName: "core.capabilities.resolve",
+      risk: "safe",
+      inputRedacted: {
+        hasIntent: Boolean(body?.intent || body?.query),
+        safeOnly: body?.safeOnly !== false,
+        includeWorkflows: body?.includeWorkflows !== false,
+      },
+      outputSummary: result.ok ? `Selected ${result.selected.length} capability candidates.` : result.error || "Capability resolver returned failure.",
+    })
+
+    sendJson(response, result.status, { ...result, auditEventId: auditEvent.id })
     return
   }
 
@@ -266,6 +296,11 @@ const server = createServer(async (request, response) => {
     return
   }
 
+  if (url.pathname === "/capabilities") {
+    sendJson(response, 200, listCoreCapabilities(capabilityGraphInput()))
+    return
+  }
+
   if (url.pathname === "/workflows") {
     sendJson(response, 200, listCoreWorkflows())
     return
@@ -308,12 +343,14 @@ const server = createServer(async (request, response) => {
       "/providers",
       "/skills",
       "/tools",
+      "/capabilities",
       "/workflows",
       "/audit",
       "/approvals",
       "POST /chat",
       "POST /memory/search",
       "POST /tools/run",
+      "POST /capabilities/resolve",
       "POST /workflows/run",
       "POST /approvals/:id/approve",
       "POST /approvals/:id/reject",
