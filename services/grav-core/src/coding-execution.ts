@@ -1,5 +1,5 @@
 import { spawn } from "node:child_process"
-import { stat } from "node:fs/promises"
+import { readdir, stat } from "node:fs/promises"
 import path from "node:path"
 
 import { writeAuditEvent } from "./audit.js"
@@ -24,6 +24,20 @@ const BLOCKED_FILE_NAMES = new Set([
   "id_rsa",
   "id_ed25519",
 ])
+
+const CLAW_CONTRACT_CANDIDATES = [
+  "package.json",
+  "pyproject.toml",
+  "Cargo.toml",
+  "go.mod",
+  "README.md",
+  "src",
+  "bin",
+  "cli",
+  "index.ts",
+  "index.js",
+  "main.py",
+]
 
 const CONTRACTS = {
   "coding-aider": {
@@ -68,16 +82,21 @@ const CONTRACTS = {
   },
   "coding-claw": {
     moduleId: "coding-claw",
-    executionState: "registered-unverified",
+    executionState: "unavailable-contract-not-verified",
     sourcePath: "modules/coding-claw",
     serviceEnv: CLAW_BASE_ENV,
     discoveredFrom: [
-      "No stable Claw CLI/API contract has been verified in this pass.",
+      "GitHub contents lookup for modules/coding-claw/package.json returned 404 during this verification pass.",
+      "Repository search for 'claw' and 'coding-claw' returned no module contract evidence during this verification pass.",
+      "Runtime Core will still probe modules/coding-claw when GRAVITY_ENABLE_LOCAL_TOOLS=true so a local restored folder is reported honestly.",
     ],
     supportedAction: "none-yet",
+    contractCandidates: CLAW_CONTRACT_CANDIDATES,
     safetyPolicy: [
       "registered in the tool bus for visibility and approval workflow continuity",
       "execution remains unavailable until manifests, routes, CLIs, and sandbox policy are reviewed",
+      "if the source folder is missing, Core reports sourceState=missing rather than pretending Claw exists",
+      "if GRAVITY_CLAW_BASE_URL is configured, Core still refuses proxy execution until allowed routes are reviewed",
       "never fakes a successful Claw run",
     ],
   },
@@ -152,6 +171,76 @@ function normalizeTimeoutMs(input: unknown) {
 function isBlockedCredentialPath(relativePath: string) {
   const name = path.basename(relativePath).toLowerCase()
   return BLOCKED_FILE_NAMES.has(name) || name.endsWith(".pem") || name.endsWith(".key") || name.endsWith(".crt")
+}
+
+async function probeOptionalPath(root: string, relativePath: string) {
+  try {
+    const fileStat = await stat(safeJoin(root, relativePath))
+    return {
+      path: relativePath,
+      exists: true,
+      type: fileStat.isDirectory() ? "directory" : fileStat.isFile() ? "file" : "other",
+      bytes: fileStat.isFile() ? fileStat.size : undefined,
+    }
+  } catch {
+    return {
+      path: relativePath,
+      exists: false,
+      type: "missing",
+    }
+  }
+}
+
+async function verifyContractSource(contract: (typeof CONTRACTS)[CodingModuleId]) {
+  if (!localToolsEnabled()) {
+    return {
+      sourceState: "unverified-local-tools-disabled",
+      root: undefined,
+      sourcePath: contract.sourcePath,
+      evidence: [],
+      warnings: [
+        "Set GRAVITY_ENABLE_LOCAL_TOOLS=true and GRAVITY_WORKSPACE_ROOT or GRAVITY_REPO_ROOT to let Core verify this module source on the running machine.",
+      ],
+    }
+  }
+
+  const root = getWorkspaceRoot()
+  const source = await probeOptionalPath(root, contract.sourcePath)
+  if (!source.exists || source.type !== "directory") {
+    return {
+      sourceState: "missing",
+      root,
+      sourcePath: contract.sourcePath,
+      evidence: [],
+      warnings: [`${contract.sourcePath} is missing or is not a directory in this workspace.`],
+    }
+  }
+
+  let topLevelEntries: string[] = []
+  try {
+    topLevelEntries = (await readdir(safeJoin(root, contract.sourcePath))).sort()
+  } catch {
+    topLevelEntries = []
+  }
+
+  const candidates = "contractCandidates" in contract ? contract.contractCandidates : []
+  const candidateEvidence = []
+  for (const candidate of candidates) {
+    const relativePath = normalizeRelativePath(path.posix.join(contract.sourcePath, candidate))
+    const probe = await probeOptionalPath(root, relativePath)
+    if (probe.exists) candidateEvidence.push(probe)
+  }
+
+  return {
+    sourceState: candidateEvidence.length ? "available-unreviewed" : "available-no-contract-candidates",
+    root,
+    sourcePath: contract.sourcePath,
+    topLevelEntries: topLevelEntries.slice(0, 80),
+    evidence: candidateEvidence,
+    warnings: candidateEvidence.length
+      ? ["Source exists, but execution is still blocked until the discovered contract files are reviewed and allowlisted."]
+      : ["Source exists, but no expected Claw manifest/CLI/API candidate files were found at top level."],
+  }
 }
 
 async function assertFileUnderWorkspace(root: string, relativeFile: string) {
@@ -265,7 +354,7 @@ async function auditCodingExecution(result: ExecutionResult, input: Record<strin
   })
 }
 
-export function getCodingExecutionContracts(input: { moduleId?: string } = {}) {
+export async function getCodingExecutionContracts(input: { moduleId?: string } = {}) {
   const moduleId = getString(input.moduleId)
   const contracts = moduleId
     ? Object.values(CONTRACTS).filter((contract) => contract.moduleId === moduleId)
@@ -280,12 +369,24 @@ export function getCodingExecutionContracts(input: { moduleId?: string } = {}) {
     }
   }
 
+  const enrichedContracts = []
+  for (const contract of contracts) {
+    enrichedContracts.push({
+      ...contract,
+      envState: {
+        executionEnabled: getBooleanEnv(CODING_EXECUTION_ENV),
+        serviceConfigured: "serviceEnv" in contract ? Boolean(process.env[contract.serviceEnv]?.trim()) : undefined,
+      },
+      sourceVerification: await verifyContractSource(contract),
+    })
+  }
+
   return {
     ok: true as const,
     status: 200,
     service: "grav-core",
     executionEnabled: getBooleanEnv(CODING_EXECUTION_ENV),
-    contracts,
+    contracts: enrichedContracts,
   }
 }
 
@@ -527,13 +628,18 @@ export async function runOpenHandsAction(input: Record<string, unknown>): Promis
 export async function runClawAction(input: Record<string, unknown>): Promise<ExecutionResult> {
   const moduleId = "coding-claw" as const
   const action = getString(input.action, "run") || "run"
+  const sourceVerification = await verifyContractSource(CONTRACTS[moduleId])
   const result: ExecutionResult = {
     moduleId,
     action,
     contract: CONTRACTS[moduleId],
+    sourceVerification,
     ok: false,
-    status: 501,
-    error: "Claw execution is still unavailable because no stable Claw route/CLI contract has been verified. Core exposes inventory/search/read only for this module until that contract exists.",
+    status: sourceVerification.sourceState === "missing" ? 404 : 501,
+    error:
+      sourceVerification.sourceState === "missing"
+        ? "Claw execution is unavailable because modules/coding-claw is missing from this workspace. Restore or rename the module before wiring execution."
+        : "Claw execution is unavailable because no stable Claw route/CLI contract has been verified. Core exposes inventory/search/read only for this module until that contract exists.",
   }
   await auditCodingExecution(result, input)
   return result
