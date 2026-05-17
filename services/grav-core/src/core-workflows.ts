@@ -19,7 +19,7 @@ type WorkflowStep = {
   optional?: boolean
 }
 
-type WorkflowDefinition = {
+export type WorkflowDefinition = {
   id: string
   title: string
   description: string
