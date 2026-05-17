@@ -1,3 +1,4 @@
+import { SystemApprovalsPanel } from "@/components/system-approvals-panel"
 import { SystemAuditPanel } from "@/components/system-audit-panel"
 import { Badge } from "@/components/ui/badge"
 import { getGravityCoreSkills, runGravityCoreTool } from "@/lib/gravity-core-client"
@@ -413,6 +414,14 @@ export async function SystemConnectivityDashboard() {
             >
               Open Core tools
             </a>
+            <a
+              className="inline-flex h-8 shrink-0 items-center justify-center rounded-4xl border border-border bg-background px-3 text-sm font-medium hover:bg-muted hover:text-foreground"
+              href="/api/core/approvals"
+              target="_blank"
+              rel="noreferrer"
+            >
+              Open approvals
+            </a>
           </div>
         </div>
 
@@ -461,6 +470,7 @@ export async function SystemConnectivityDashboard() {
         </section>
       ) : null}
 
+      <SystemApprovalsPanel />
       <SystemAuditPanel />
 
       <section className="space-y-3 rounded-xl border bg-background p-5">
