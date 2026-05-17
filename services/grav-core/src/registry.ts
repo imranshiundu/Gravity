@@ -49,10 +49,10 @@ export const gravCoreModules: GravityModule[] = [
       { id: "coding.modules.inventory", title: "Coding module inventory", description: "Inventories the real OpenHands, Aider, and Claw module source trees for manifests, CLI entrypoints, routes, tools, and HTTP clients.", status: "connected" },
       { id: "coding.modules.search", title: "Search coding modules", description: "Searches the real coding module source trees without executing code or modifying files.", status: "connected" },
       { id: "coding.modules.read", title: "Read coding module file", description: "Reads small text/code files from coding modules only; credential-style files and workspace escape paths are blocked.", status: "connected" },
-      { id: "coding.execution.contracts", title: "Coding execution contracts", description: "Reports reviewed execution contracts, env gates, supported actions, and safety policy for coding modules.", status: "connected" },
+      { id: "coding.execution.contracts", title: "Coding execution contracts", description: "Reports reviewed execution contracts, env gates, source verification, supported actions, and safety policy for coding modules.", status: "connected" },
       { id: "coding.openhands.run", title: "OpenHands execution", description: "Approval-gated service proxy through GRAVITY_OPENHANDS_BASE_URL. It allows only reviewed OpenHands route prefixes and never starts OpenHands itself.", status: "registered" },
       { id: "coding.aider.run", title: "Aider dry-run execution", description: "Approval-gated dry-run through the real modules/coding-aider CLI contract when GRAVITY_ENABLE_CODING_EXECUTION=true. Write/edit mode is not enabled.", status: "registered" },
-      { id: "coding.claw.run", title: "Claw execution", description: "Registered as dangerous and approval-gated, but still returns honest 501 until the module route/CLI contract is verified.", status: "registered" },
+      { id: "coding.claw.run", title: "Claw execution", description: "Dangerous tool is registered for approval workflow continuity, but execution returns 404 when modules/coding-claw is missing or 501 when present but unreviewed. No Claw CLI/API is treated as connected yet.", status: "missing" },
     ],
   },
   {
