@@ -18,12 +18,15 @@ export const gravCoreModules: GravityModule[] = [
     id: "core-bindings",
     name: "Universal Module Bindings",
     description: "Core-owned binding layer that inventories all known modules before routing, proxying, importing, or executing anything.",
-    sourcePath: "services/grav-core/src/module-bindings.ts, services/grav-core/src/adapters",
+    sourcePath: "services/grav-core/src/module-bindings.ts, services/grav-core/src/core-defense-modules.ts, services/grav-core/src/adapters",
     connectionState: "connected",
     capabilities: [
       { id: "modules.inventory", title: "Inventory all modules", description: "Inspect every known module source path for manifests, route files, route hints, CLI entrypoints, tool files, config, docs, service envs, and dangerous actions.", status: "connected" },
       { id: "modules.search", title: "Search all modules", description: "Search all known module source trees without executing code or modifying files.", status: "connected" },
       { id: "modules.read", title: "Read module file", description: "Safely read small text/code files from known module source paths only. Path escapes and credential-style files are blocked.", status: "connected" },
+      { id: "core.module.inventory", title: "Core module inventory", description: "Inspect modules/core specifically for manifests, routes, contracts, configs, docs, and CLI/tooling signals.", status: "connected" },
+      { id: "core.module.search", title: "Search core module", description: "Search modules/core only without executing module code.", status: "connected" },
+      { id: "core.module.read", title: "Read core module file", description: "Read small text/code files from modules/core only with path and credential-file guards.", status: "connected" },
     ],
   },
   {
@@ -59,10 +62,14 @@ export const gravCoreModules: GravityModule[] = [
     id: "defense",
     name: "Defense",
     description: "Defensive security and local audit capability contract.",
-    sourcePath: "modules/defense",
+    sourcePath: "modules/defense, services/grav-core/src/core-defense-modules.ts",
     connectionState: "connected",
     capabilities: [
-      { id: "defense.scan", title: "Defensive scan", description: "Guarded local checks for secret-like assignments, TODO markers, and large skipped files.", status: "connected" },
+      { id: "defense.inventory", title: "Defense module inventory", description: "Inspect modules/defense specifically for manifests, routes, scanners, policy/config files, docs, and CLI/tooling signals.", status: "connected" },
+      { id: "defense.search", title: "Search defense module", description: "Search modules/defense only without executing module code.", status: "connected" },
+      { id: "defense.read", title: "Read defense module file", description: "Read small text/code files from modules/defense only with path and credential-file guards.", status: "connected" },
+      { id: "defense.scan", title: "Workspace defensive scan", description: "Guarded local checks for secret-like assignments, TODO markers, and large skipped files across the configured workspace.", status: "connected" },
+      { id: "defense.module.scan", title: "Defense module scan", description: "Guarded defensive scan filtered to modules/defense findings only.", status: "connected" },
     ],
   },
   {
