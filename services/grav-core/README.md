@@ -74,6 +74,7 @@ coding.scan
 coding.modules.inventory
 coding.modules.search
 coding.modules.read
+coding.execution.contracts
 defense.scan
 channels.inventory
 voice.inventory
@@ -98,12 +99,12 @@ ollama.generate                -> OLLAMA_BASE_URL
 ollama.chat                    -> OLLAMA_BASE_URL
 ```
 
-Registered coding execution tools:
+Approval-gated coding execution tools:
 
 ```text
-coding.openhands.run -> approval required, returns 501 until OpenHands contract/sandbox is reviewed
-coding.aider.run     -> approval required, returns 501 until Aider CLI/edit contract is reviewed
-coding.claw.run      -> approval required, returns 501 until Claw contract/sandbox is reviewed
+coding.openhands.run -> approved service proxy through GRAVITY_OPENHANDS_BASE_URL
+coding.aider.run     -> approved dry-run through modules/coding-aider CLI
+coding.claw.run      -> approved request returns honest 501 until Claw contract is verified
 ```
 
 Approval-gated tools should normally run through the approval queue, not by directly adding `approved: true` from the UI.
@@ -195,9 +196,10 @@ list Ollama models             -> ollama.models
 check gateway status           -> gateway.status
 scan defense risks             -> defense.scan
 inspect coding modules         -> coding.modules.inventory
+inspect coding execution       -> coding.execution.contracts
 send a channel message         -> stored approval request for channels.send
 run orchestration workflow     -> stored approval request for orchestration.workflow.run
-run Aider/OpenHands/Claw       -> stored approval request, then still 501 until sandbox contract is reviewed
+run Aider/OpenHands/Claw       -> stored approval request, then contract-gated execution where available
 ```
 
 Tool-use chat responses include:
@@ -430,7 +432,7 @@ ollama.chat
 
 ## Coding module binding
 
-The coding modules are bound as inspectable source capabilities first, not fake execution shells.
+The coding modules are bound as inspectable source capabilities first, then only the reviewed execution surfaces are exposed.
 
 Core scans the real folders:
 
@@ -480,27 +482,117 @@ Safe read:
 
 `coding.modules.read` is intentionally scoped to the three coding module trees. It blocks workspace escape paths, non-text files, oversized files, and credential-style files.
 
-Current known module signals from manifests:
+Execution contracts:
 
-```text
-modules/coding-openhands/pyproject.toml -> OpenHands Python project, FastAPI, MCP/FastMCP, OpenHands SDK/server/tools dependencies
-modules/coding-aider/pyproject.toml     -> Aider Python project, real CLI script: aider = aider.main:main
-modules/coding-claw                     -> inventory is runtime-discovered; missing folders are reported as unavailable, not faked
+```json
+{
+  "toolName": "coding.execution.contracts",
+  "input": {}
+}
 ```
 
-Dangerous execution/edit tools are registered but unavailable:
+Current known module signals from manifests and reviewed entry files:
+
+```text
+modules/coding-openhands/pyproject.toml              -> OpenHands Python project, FastAPI, MCP/FastMCP, OpenHands SDK/server/tools dependencies
+modules/coding-openhands/openhands/server/app.py     -> FastAPI app, /mcp mount, legacy routers, optional V1 router
+modules/coding-openhands/openhands/app_server/v1_router.py -> V1 router mounted at /api/v1
+modules/coding-aider/pyproject.toml                  -> Aider Python project, real CLI script: aider = aider.main:main
+modules/coding-aider/aider/args.py                   -> --message, --dry-run, --no-auto-commits, --no-auto-test, --no-auto-lint, --file/read controls
+modules/coding-claw                                  -> inventory is runtime-discovered; missing folders are reported as unavailable, not faked
+```
+
+### Aider dry-run execution
+
+Aider execution is connected only for dry runs. It still requires approval and an explicit env gate.
+
+Required:
+
+```bash
+GRAVITY_ENABLE_LOCAL_TOOLS=true
+GRAVITY_WORKSPACE_ROOT=/absolute/path/to/Gravity
+GRAVITY_ENABLE_CODING_EXECUTION=true
+GRAVITY_CODING_PYTHON=python3
+```
+
+Optional:
+
+```bash
+GRAVITY_CODING_EXEC_TIMEOUT_MS=120000
+```
+
+Example direct approved run:
 
 ```json
 {
   "toolName": "coding.aider.run",
   "input": {
     "approved": true,
-    "body": {}
+    "action": "dry-run",
+    "prompt": "Review these files and explain the likely change plan. Do not edit.",
+    "cwd": ".",
+    "files": ["services/grav-core/src/tool-bus.ts"],
+    "model": "ollama/<model>"
   }
 }
 ```
 
-Even after approval, current behavior is `501` until the real module contract, sandbox, command allowlist, rollback/audit design, and workspace write policy are reviewed.
+Core forces these safety flags:
+
+```text
+--dry-run
+--no-auto-commits
+--no-dirty-commits
+--no-gitignore
+--no-auto-lint
+--no-auto-test
+--no-analytics
+--no-check-update
+--disable-playwright
+--no-suggest-shell-commands
+--no-detect-urls
+```
+
+Real write/edit mode is not enabled yet.
+
+### OpenHands service proxy
+
+OpenHands execution is connected as an approved proxy to a separately running OpenHands module service. Core does not start OpenHands, Docker, Kubernetes, sandboxes, or browsers by itself.
+
+Required:
+
+```bash
+GRAVITY_OPENHANDS_BASE_URL=http://127.0.0.1:<openhands-port>
+```
+
+Allowed path prefixes:
+
+```text
+/api/v1
+/health
+/alive
+/mcp
+```
+
+Example direct approved proxy:
+
+```json
+{
+  "toolName": "coding.openhands.run",
+  "input": {
+    "approved": true,
+    "action": "proxy",
+    "method": "GET",
+    "path": "/health"
+  }
+}
+```
+
+If `GRAVITY_OPENHANDS_BASE_URL` is missing or the upstream service is unreachable, Core returns an unavailable/error state. It never fakes a successful OpenHands run.
+
+### Claw
+
+`coding.claw.run` remains registered but returns `501` after approval until a stable Claw route/CLI contract is verified.
 
 ## Audit log
 
@@ -517,69 +609,3 @@ Override location:
 ```bash
 GRAV_CORE_DATA_DIR=/absolute/path/to/core-data
 ```
-
-Audit events intentionally store redacted input summaries instead of raw full chat transcripts. Tool runs also write audit events. Approval queue actions also write audit events.
-
-Chat-triggered tool use is summarized in audit output with the selected tool, intent, execution state, approval state, and approval count.
-
-## Web integration
-
-Set this in `apps/web` runtime env when the service is running:
-
-```bash
-GRAVITY_CORE_BASE_URL=http://127.0.0.1:8765
-```
-
-If this is not set, the web app must report Core as in-process/registry-backed instead of pretending the standalone service is running.
-
-Web bridge routes:
-
-```text
-GET  /api/core/status
-GET  /api/core/skills
-GET  /api/core/tools
-POST /api/core/tools/run
-POST /api/core/chat
-GET  /api/core/audit?limit=50
-GET  /api/core/approvals
-POST /api/core/approvals/:id/execute
-POST /api/core/approvals/:id/reject
-```
-
-The existing web tool runner bridge `POST /api/core/tools/run` automatically forwards these tools to Core when `GRAVITY_CORE_BASE_URL` is configured.
-
-## Current truth
-
-Connected through Core:
-
-- assistant chat through Core when `GRAVITY_CORE_BASE_URL` is configured
-- deterministic assistant tool-use routing for safe Core tools
-- persistent assistant approval requests for risky/approval-gated tools
-- Core approval queue list/reject/execute routes
-- `/system` approval queue UI
-- assistant chat memory context injection through `modules/memory` MemPalace
-- Core tool/skill listing
-- Core tool runner
-- Core audit events
-- universal module inventory/search/read
-- guarded coding scan
-- guarded coding module inventory/search/read for OpenHands, Aider, and Claw
-- guarded defense scan
-- MemPalace search
-- service adapter inventory for channels, voice, gateway, orchestration, and Ollama
-- Ollama model listing when `OLLAMA_BASE_URL` is configured
-
-Registered but externally configured:
-
-- channels inbox/send through `GRAVITY_CHANNELS_BASE_URL`
-- voice session/TTS/STT through `GRAVITY_VOICE_BASE_URL`
-- gateway status/proxy through `GRAVITY_GATEWAY_BASE_URL`
-- orchestration workflow dispatch through `GRAVITY_ORCHESTRATION_BASE_URL`
-- Ollama generate/chat through `OLLAMA_BASE_URL`
-
-Still missing deeper module binding:
-
-- direct Aider/OpenHands/Claw execution after contract review
-- coding sandbox, command allowlist, rollback, and write-policy enforcement
-- module-native service startup commands
-- assistant multi-step tool planning beyond deterministic single-tool intent
