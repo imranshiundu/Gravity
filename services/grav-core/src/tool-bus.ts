@@ -25,6 +25,7 @@ import {
 import { getGatewayReviewedContract, readGatewayModuleFile, searchGatewayModule } from "./gateway-module.js"
 import { searchMempalaceMemories } from "./memory.js"
 import { getUnifiedModuleInventory, readUnifiedModuleFile, searchUnifiedModules } from "./module-bindings.js"
+import { getOllamaReviewedContract, readOllamaModuleFile, searchOllamaModule } from "./ollama-module.js"
 import { getOrchestrationReviewedContract, readOrchestrationModuleFile, searchOrchestrationModule } from "./orchestration-module.js"
 import { getGravCoreStatus, gravCoreModules } from "./registry.js"
 import { getVoiceReviewedContract, readVoiceModuleFile, searchVoiceModule } from "./voice-module.js"
@@ -197,9 +198,12 @@ export const gravityCoreTools: GravityTool[] = [
   tool("orchestration.workflow.run", "Run orchestration workflow", "Dispatch a workflow to the configured orchestration module service. Approval is required and only reviewed workflow/run paths are allowed.", "orchestration", "medium", true, approvedServiceInputSchema),
 
   tool("ollama.inventory", "Ollama inventory", "Inspect Ollama module source if present and probe local Ollama API routes.", "ollama"),
-  tool("ollama.models", "List Ollama models", "List models through OLLAMA_BASE_URL /api/tags.", "ollama", "safe", false, serviceInputSchema),
-  tool("ollama.generate", "Ollama generate", "Run a direct Ollama generate request through the configured provider endpoint.", "ollama", "medium", false, serviceInputSchema),
-  tool("ollama.chat", "Ollama chat", "Run a direct Ollama chat request through the configured provider endpoint.", "ollama", "medium", false, serviceInputSchema),
+  tool("ollama.contract", "Ollama reviewed contract", "Return the reviewed Ollama provider contract, current source inventory, and model/generate/chat path partitions.", "ollama"),
+  tool("ollama.search", "Search Ollama module", "Search inside modules/ollama only without executing code or modifying files.", "ollama", "safe", false, searchSchema),
+  tool("ollama.read", "Read Ollama module file", "Read a small text/code file from modules/ollama only. Credential-style files and path escapes are blocked.", "ollama", "safe", false, safeReadSchema),
+  tool("ollama.models", "List Ollama models", "List models through OLLAMA_BASE_URL /api/tags using reviewed model-read paths only.", "ollama", "safe", false, serviceInputSchema),
+  tool("ollama.generate", "Ollama generate", "Run a direct Ollama generate request through OLLAMA_BASE_URL /api/generate using reviewed generation paths only.", "ollama", "medium", false, serviceInputSchema),
+  tool("ollama.chat", "Ollama chat", "Run a direct Ollama chat request through OLLAMA_BASE_URL /api/chat using reviewed chat paths only.", "ollama", "medium", false, serviceInputSchema),
 ]
 
 function getTool(name: string) {
@@ -429,6 +433,18 @@ export async function runGravityTool(payload: CoreToolRunInput) {
     }
 
     if (selectedTool.name === "ollama.inventory") return { ok: true, status: 200, tool: selectedTool, data: await getOllamaInventory() }
+    if (selectedTool.name === "ollama.contract") {
+      const result = await getOllamaReviewedContract()
+      return { ok: result.ok, status: result.status, tool: selectedTool, data: result }
+    }
+    if (selectedTool.name === "ollama.search") {
+      const result = await searchOllamaModule(input)
+      return { ok: result.ok, status: result.status, tool: selectedTool, data: result }
+    }
+    if (selectedTool.name === "ollama.read") {
+      const result = await readOllamaModuleFile(input)
+      return { ok: result.ok, status: result.status, tool: selectedTool, data: result }
+    }
     if (selectedTool.name === "ollama.models") {
       const result = await listOllamaModels(input)
       return { ok: result.ok, status: result.status, tool: selectedTool, data: result }
