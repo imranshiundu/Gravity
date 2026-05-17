@@ -1,20 +1,43 @@
-import { getUnifiedModuleInventory } from "../module-bindings.js"
+import {
+  getVoiceModuleInventory,
+  REVIEWED_VOICE_READ_PATH_PREFIXES,
+  REVIEWED_VOICE_SESSION_PATH_PREFIXES,
+  REVIEWED_VOICE_STT_PATH_PREFIXES,
+  REVIEWED_VOICE_TTS_PATH_PREFIXES,
+} from "../voice-module.js"
 import { probeModuleService, proxyModuleService, type ServiceAdapterInput } from "./service-adapters.js"
 
-const config = {
+const sessionConfig = {
   moduleId: "voice",
   envName: "GRAVITY_VOICE_BASE_URL",
   defaultPath: "/session",
-  allowedPathPrefixes: ["/", "/health", "/status", "/session", "/sessions", "/tts", "/stt", "/models", "/api"],
+  defaultMethod: "POST",
+  allowedPathPrefixes: [...REVIEWED_VOICE_SESSION_PATH_PREFIXES],
+}
+
+const ttsConfig = {
+  moduleId: "voice",
+  envName: "GRAVITY_VOICE_BASE_URL",
+  defaultPath: "/tts",
+  defaultMethod: "POST",
+  allowedPathPrefixes: [...REVIEWED_VOICE_TTS_PATH_PREFIXES],
+}
+
+const sttConfig = {
+  moduleId: "voice",
+  envName: "GRAVITY_VOICE_BASE_URL",
+  defaultPath: "/stt",
+  defaultMethod: "POST",
+  allowedPathPrefixes: [...REVIEWED_VOICE_STT_PATH_PREFIXES],
 }
 
 export async function getVoiceInventory() {
-  const source = await getUnifiedModuleInventory({ moduleId: "voice", includeRoutes: true })
+  const source = await getVoiceModuleInventory({ includeRoutes: true, includeFiles: false })
   const service = await probeModuleService({
-    moduleId: config.moduleId,
-    envName: config.envName,
-    allowedPathPrefixes: config.allowedPathPrefixes,
-    probePaths: ["/health", "/status", "/models", "/session"],
+    moduleId: "voice",
+    envName: "GRAVITY_VOICE_BASE_URL",
+    allowedPathPrefixes: [...REVIEWED_VOICE_READ_PATH_PREFIXES],
+    probePaths: ["/health", "/status", "/models"],
   })
 
   return {
@@ -22,19 +45,29 @@ export async function getVoiceInventory() {
     status: 200,
     moduleId: "voice",
     serviceCapability: "voice session, TTS, STT, streaming/realtime audio",
+    reviewedProxyContract: {
+      readAllowedPathPrefixes: [...REVIEWED_VOICE_READ_PATH_PREFIXES],
+      sessionAllowedPathPrefixes: [...REVIEWED_VOICE_SESSION_PATH_PREFIXES],
+      ttsAllowedPathPrefixes: [...REVIEWED_VOICE_TTS_PATH_PREFIXES],
+      sttAllowedPathPrefixes: [...REVIEWED_VOICE_STT_PATH_PREFIXES],
+      sessionDefaultPath: "/session",
+      ttsDefaultPath: "/tts",
+      sttDefaultPath: "/stt",
+      removedBroadPrefixes: ["/", "/api"],
+    },
     source,
     service,
   }
 }
 
 export async function createVoiceSession(input: ServiceAdapterInput = {}) {
-  return proxyModuleService({ ...config, defaultPath: "/session", defaultMethod: "POST" }, input)
+  return proxyModuleService(sessionConfig, input)
 }
 
 export async function runVoiceTts(input: ServiceAdapterInput = {}) {
-  return proxyModuleService({ ...config, defaultPath: "/tts", defaultMethod: "POST" }, input)
+  return proxyModuleService(ttsConfig, input)
 }
 
 export async function runVoiceStt(input: ServiceAdapterInput = {}) {
-  return proxyModuleService({ ...config, defaultPath: "/stt", defaultMethod: "POST" }, input)
+  return proxyModuleService(sttConfig, input)
 }
