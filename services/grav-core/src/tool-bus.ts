@@ -26,6 +26,7 @@ import { getGatewayReviewedContract, readGatewayModuleFile, searchGatewayModule 
 import { searchMempalaceMemories } from "./memory.js"
 import { getUnifiedModuleInventory, readUnifiedModuleFile, searchUnifiedModules } from "./module-bindings.js"
 import { getGravCoreStatus, gravCoreModules } from "./registry.js"
+import { getVoiceReviewedContract, readVoiceModuleFile, searchVoiceModule } from "./voice-module.js"
 import { scanGravityWorkspace } from "./workspace-scan.js"
 
 export type CoreToolRunInput = {
@@ -174,9 +175,12 @@ export const gravityCoreTools: GravityTool[] = [
   tool("channels.send", "Channels send", "Send outbound messages through the configured channels module service. Approval is required and only reviewed send paths are allowed.", "channels", "medium", true, approvedServiceInputSchema),
 
   tool("voice.inventory", "Voice inventory", "Inspect voice module source and probe configured voice service routes.", "voice"),
-  tool("voice.session", "Voice session", "Create or proxy a realtime voice session through the configured voice module service.", "voice", "medium", false, serviceInputSchema),
-  tool("voice.tts", "Voice TTS", "Run text-to-speech through the configured voice module service.", "voice", "medium", false, serviceInputSchema),
-  tool("voice.stt", "Voice STT", "Run speech-to-text through the configured voice module service.", "voice", "medium", false, serviceInputSchema),
+  tool("voice.contract", "Voice reviewed contract", "Return the reviewed Voice service contract, current source inventory, and session/TTS/STT path partitions.", "voice"),
+  tool("voice.search", "Search voice module", "Search inside modules/voice only without executing code or modifying files.", "voice", "safe", false, searchSchema),
+  tool("voice.read", "Read voice module file", "Read a small text/code file from modules/voice only. Credential-style files and path escapes are blocked.", "voice", "safe", false, safeReadSchema),
+  tool("voice.session", "Voice session", "Create or proxy a realtime voice session through the configured voice module service using reviewed session paths only.", "voice", "medium", false, serviceInputSchema),
+  tool("voice.tts", "Voice TTS", "Run text-to-speech through the configured voice module service using reviewed TTS paths only.", "voice", "medium", false, serviceInputSchema),
+  tool("voice.stt", "Voice STT", "Run speech-to-text through the configured voice module service using reviewed STT paths only.", "voice", "medium", false, serviceInputSchema),
 
   tool("gateway.inventory", "Gateway inventory", "Inspect gateway module source and probe configured gateway service routes.", "gateway"),
   tool("gateway.contract", "Gateway reviewed contract", "Return the reviewed Gateway service contract, current source inventory, and allowed proxy path prefixes.", "gateway"),
@@ -355,6 +359,18 @@ export async function runGravityTool(payload: CoreToolRunInput) {
     }
 
     if (selectedTool.name === "voice.inventory") return { ok: true, status: 200, tool: selectedTool, data: await getVoiceInventory() }
+    if (selectedTool.name === "voice.contract") {
+      const result = await getVoiceReviewedContract()
+      return { ok: result.ok, status: result.status, tool: selectedTool, data: result }
+    }
+    if (selectedTool.name === "voice.search") {
+      const result = await searchVoiceModule(input)
+      return { ok: result.ok, status: result.status, tool: selectedTool, data: result }
+    }
+    if (selectedTool.name === "voice.read") {
+      const result = await readVoiceModuleFile(input)
+      return { ok: result.ok, status: result.status, tool: selectedTool, data: result }
+    }
     if (selectedTool.name === "voice.session") {
       const result = await createVoiceSession(input)
       return { ok: result.ok, status: result.status, tool: selectedTool, data: result }
