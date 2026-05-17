@@ -15,6 +15,18 @@ export const gravCoreModules: GravityModule[] = [
     ],
   },
   {
+    id: "core-capabilities",
+    name: "Core Capability Graph",
+    description: "Gravity-owned capability graph that resolves operator/user intent into existing Core tools and workflows without executing them.",
+    sourcePath: "services/grav-core/src/core-capabilities.ts, services/grav-core/src/tool-bus.ts, services/grav-core/src/server.ts",
+    connectionState: "connected",
+    capabilities: [
+      { id: "core.capabilities.list", title: "List Core capabilities", description: "Expose modules, tools, workflows, and workflow-to-tool edges through /capabilities and the tool bus.", status: "connected" },
+      { id: "core.capabilities.resolve", title: "Resolve Core capabilities", description: "Resolve intent/query into safe candidate tools and workflows, while excluding medium/dangerous actions by default.", status: "connected" },
+      { id: "core.capabilities.policy", title: "Capability safety policy", description: "Marks selected, requires-approval, and excluded-by-safe-policy candidates honestly without faking execution.", status: "connected" },
+    ],
+  },
+  {
     id: "core-workflows",
     name: "Core Workflows",
     description: "Gravity-owned workflow runner that coordinates connected module tools through Core instead of inventing side systems.",
@@ -190,6 +202,8 @@ export function getGravCoreStatus(mode: GravityCoreStatus["mode"] = "standalone"
       skills: "/skills",
       tools: "/tools",
       runTool: "/tools/run",
+      capabilities: "/capabilities",
+      resolveCapabilities: "/capabilities/resolve",
       workflows: "/workflows",
       runWorkflow: "/workflows/run",
       chat: "/chat",
