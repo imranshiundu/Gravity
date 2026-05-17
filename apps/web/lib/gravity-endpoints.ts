@@ -10,6 +10,7 @@ export const gravityEndpoints = {
     runTool: "/api/core/tools/run",
     audit: "/api/core/audit",
     approvals: "/api/core/approvals",
+    approvalApprove: (id: string) => `/api/core/approvals/${encodeURIComponent(id)}/approve`,
     approvalExecute: (id: string) => `/api/core/approvals/${encodeURIComponent(id)}/execute`,
     approvalReject: (id: string) => `/api/core/approvals/${encodeURIComponent(id)}/reject`,
   },
