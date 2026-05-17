@@ -25,6 +25,7 @@ import {
 import { getGatewayReviewedContract, readGatewayModuleFile, searchGatewayModule } from "./gateway-module.js"
 import { searchMempalaceMemories } from "./memory.js"
 import { getUnifiedModuleInventory, readUnifiedModuleFile, searchUnifiedModules } from "./module-bindings.js"
+import { getOrchestrationReviewedContract, readOrchestrationModuleFile, searchOrchestrationModule } from "./orchestration-module.js"
 import { getGravCoreStatus, gravCoreModules } from "./registry.js"
 import { getVoiceReviewedContract, readVoiceModuleFile, searchVoiceModule } from "./voice-module.js"
 import { scanGravityWorkspace } from "./workspace-scan.js"
@@ -190,7 +191,10 @@ export const gravityCoreTools: GravityTool[] = [
   tool("gateway.proxy", "Gateway proxy", "Proxy an approved request through the configured gateway service. Only reviewed path prefixes are allowed.", "gateway", "medium", true, approvedServiceInputSchema),
 
   tool("orchestration.inventory", "Orchestration inventory", "Inspect orchestration module source and probe configured agent/workflow service routes.", "orchestration"),
-  tool("orchestration.workflow.run", "Run orchestration workflow", "Dispatch a workflow to the configured orchestration module service. Approval is required.", "orchestration", "medium", true, approvedServiceInputSchema),
+  tool("orchestration.contract", "Orchestration reviewed contract", "Return the reviewed orchestration service contract, current source inventory, and read/workflow path partitions.", "orchestration"),
+  tool("orchestration.search", "Search orchestration module", "Search inside modules/orchestration only without executing code or modifying files.", "orchestration", "safe", false, searchSchema),
+  tool("orchestration.read", "Read orchestration module file", "Read a small text/code file from modules/orchestration only. Credential-style files and path escapes are blocked.", "orchestration", "safe", false, safeReadSchema),
+  tool("orchestration.workflow.run", "Run orchestration workflow", "Dispatch a workflow to the configured orchestration module service. Approval is required and only reviewed workflow/run paths are allowed.", "orchestration", "medium", true, approvedServiceInputSchema),
 
   tool("ollama.inventory", "Ollama inventory", "Inspect Ollama module source if present and probe local Ollama API routes.", "ollama"),
   tool("ollama.models", "List Ollama models", "List models through OLLAMA_BASE_URL /api/tags.", "ollama", "safe", false, serviceInputSchema),
@@ -407,6 +411,18 @@ export async function runGravityTool(payload: CoreToolRunInput) {
     }
 
     if (selectedTool.name === "orchestration.inventory") return { ok: true, status: 200, tool: selectedTool, data: await getOrchestrationInventory() }
+    if (selectedTool.name === "orchestration.contract") {
+      const result = await getOrchestrationReviewedContract()
+      return { ok: result.ok, status: result.status, tool: selectedTool, data: result }
+    }
+    if (selectedTool.name === "orchestration.search") {
+      const result = await searchOrchestrationModule(input)
+      return { ok: result.ok, status: result.status, tool: selectedTool, data: result }
+    }
+    if (selectedTool.name === "orchestration.read") {
+      const result = await readOrchestrationModuleFile(input)
+      return { ok: result.ok, status: result.status, tool: selectedTool, data: result }
+    }
     if (selectedTool.name === "orchestration.workflow.run") {
       const result = await runOrchestrationWorkflow(input)
       return { ok: result.ok, status: result.status, tool: selectedTool, data: result }
