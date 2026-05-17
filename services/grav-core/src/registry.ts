@@ -18,7 +18,7 @@ export const gravCoreModules: GravityModule[] = [
     id: "core-bindings",
     name: "Universal Module Bindings",
     description: "Core-owned binding layer that inventories all known modules before routing, proxying, importing, or executing anything.",
-    sourcePath: "services/grav-core/src/module-bindings.ts, services/grav-core/src/core-defense-modules.ts, services/grav-core/src/channels-module.ts, services/grav-core/src/gateway-module.ts, services/grav-core/src/voice-module.ts, services/grav-core/src/adapters",
+    sourcePath: "services/grav-core/src/module-bindings.ts, services/grav-core/src/core-defense-modules.ts, services/grav-core/src/channels-module.ts, services/grav-core/src/gateway-module.ts, services/grav-core/src/voice-module.ts, services/grav-core/src/orchestration-module.ts, services/grav-core/src/adapters",
     connectionState: "connected",
     capabilities: [
       { id: "modules.inventory", title: "Inventory all modules", description: "Inspect every known module source path for manifests, route files, route hints, CLI entrypoints, tool files, config, docs, service envs, and dangerous actions.", status: "connected" },
@@ -121,12 +121,15 @@ export const gravCoreModules: GravityModule[] = [
   {
     id: "orchestration",
     name: "Orchestration",
-    description: "Agent and workflow orchestration capability contract.",
-    sourcePath: "modules/orchestration, services/grav-core/src/adapters/orchestration-adapter.ts",
+    description: "Agent, workflow, handoff, guardrail, and module coordination capability contract.",
+    sourcePath: "modules/orchestration, services/grav-core/src/orchestration-module.ts, services/grav-core/src/adapters/orchestration-adapter.ts",
     connectionState: "registered",
     capabilities: [
-      { id: "orchestration.inventory", title: "Orchestration inventory", description: "Inspect orchestration source and probe configured agent/workflow routes.", status: "connected" },
-      { id: "orchestration.workflow.run", title: "Run workflow", description: "Dispatch workflows to the configured orchestration service after operator approval.", status: "registered" },
+      { id: "orchestration.inventory", title: "Orchestration inventory", description: "Inspect orchestration source and probe configured agent/workflow routes with partitioned read/workflow contracts.", status: "connected" },
+      { id: "orchestration.contract", title: "Orchestration reviewed contract", description: "Return the reviewed orchestration contract, source inventory, env status, read path prefixes, workflow path prefixes, and safety policy.", status: "connected" },
+      { id: "orchestration.search", title: "Search orchestration module", description: "Search modules/orchestration only without executing module code.", status: "connected" },
+      { id: "orchestration.read", title: "Read orchestration module file", description: "Read small text/code files from modules/orchestration only with path and credential-file guards.", status: "connected" },
+      { id: "orchestration.workflow.run", title: "Run workflow", description: "Dispatch workflows to the configured orchestration service after operator approval. Only reviewed workflow/run paths are allowed: /workflow, /workflows, and /runs.", status: "registered" },
     ],
   },
   {
