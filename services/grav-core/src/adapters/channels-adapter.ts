@@ -1,20 +1,29 @@
-import { getUnifiedModuleInventory } from "../module-bindings.js"
+import { getChannelsModuleInventory, REVIEWED_CHANNELS_READ_PATH_PREFIXES, REVIEWED_CHANNELS_SEND_PATH_PREFIXES } from "../channels-module.js"
 import { probeModuleService, proxyModuleService, type ServiceAdapterInput } from "./service-adapters.js"
 
-const config = {
+const readConfig = {
   moduleId: "channels",
   envName: "GRAVITY_CHANNELS_BASE_URL",
   defaultPath: "/inbox",
-  allowedPathPrefixes: ["/", "/health", "/status", "/inbox", "/send", "/plugins", "/providers", "/webhook", "/api"],
+  defaultMethod: "GET",
+  allowedPathPrefixes: [...REVIEWED_CHANNELS_READ_PATH_PREFIXES],
+}
+
+const sendConfig = {
+  moduleId: "channels",
+  envName: "GRAVITY_CHANNELS_BASE_URL",
+  defaultPath: "/send",
+  defaultMethod: "POST",
+  allowedPathPrefixes: [...REVIEWED_CHANNELS_SEND_PATH_PREFIXES],
 }
 
 export async function getChannelsInventory() {
-  const source = await getUnifiedModuleInventory({ moduleId: "channels", includeRoutes: true })
+  const source = await getChannelsModuleInventory({ includeRoutes: true, includeFiles: false })
   const service = await probeModuleService({
-    moduleId: config.moduleId,
-    envName: config.envName,
-    allowedPathPrefixes: config.allowedPathPrefixes,
-    probePaths: ["/health", "/status", "/plugins", "/inbox"],
+    moduleId: "channels",
+    envName: "GRAVITY_CHANNELS_BASE_URL",
+    allowedPathPrefixes: [...REVIEWED_CHANNELS_READ_PATH_PREFIXES],
+    probePaths: ["/health", "/status", "/plugins", "/providers", "/inbox"],
   })
 
   return {
@@ -22,15 +31,23 @@ export async function getChannelsInventory() {
     status: 200,
     moduleId: "channels",
     serviceCapability: "multi-platform inbox/send/plugin adapter",
+    reviewedProxyContract: {
+      readAllowedPathPrefixes: [...REVIEWED_CHANNELS_READ_PATH_PREFIXES],
+      sendAllowedPathPrefixes: [...REVIEWED_CHANNELS_SEND_PATH_PREFIXES],
+      inboxDefaultPath: "/inbox",
+      sendDefaultPath: "/send",
+      approvalRequiredForSend: true,
+      removedBroadPrefixes: ["/", "/api"],
+    },
     source,
     service,
   }
 }
 
 export async function readChannelsInbox(input: ServiceAdapterInput = {}) {
-  return proxyModuleService({ ...config, defaultPath: "/inbox", defaultMethod: "GET" }, input)
+  return proxyModuleService(readConfig, { ...input, method: "GET" })
 }
 
 export async function sendChannelMessage(input: ServiceAdapterInput = {}) {
-  return proxyModuleService({ ...config, defaultPath: "/send", defaultMethod: "POST" }, input)
+  return proxyModuleService(sendConfig, input)
 }
