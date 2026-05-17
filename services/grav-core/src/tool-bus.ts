@@ -6,6 +6,7 @@ import { getOllamaInventory, listOllamaModels, runOllamaChatAdapter, runOllamaGe
 import { getOrchestrationInventory, runOrchestrationWorkflow } from "./adapters/orchestration-adapter.js"
 import { getVoiceInventory, createVoiceSession, runVoiceStt, runVoiceTts } from "./adapters/voice-adapter.js"
 import { readAuditEvents } from "./audit.js"
+import { getChannelsReviewedContract, readChannelsModuleFile, searchChannelsModule } from "./channels-module.js"
 import { getCodingExecutionContracts, runAiderAction, runClawAction, runOpenHandsAction } from "./coding-execution.js"
 import {
   getCodingModuleInventory,
@@ -166,8 +167,11 @@ export const gravityCoreTools: GravityTool[] = [
   tool("defense.module.scan", "Scan defense module findings", "Guarded defensive scan filtered to modules/defense findings only. Reports missing/no-finding states honestly.", "defense"),
 
   tool("channels.inventory", "Channels inventory", "Inspect channels module source and probe configured channel service routes.", "channels"),
-  tool("channels.inbox", "Channels inbox", "Read inbox data through the configured channels module service.", "channels", "safe", false, serviceInputSchema),
-  tool("channels.send", "Channels send", "Send outbound messages through the configured channels module service. Approval is required.", "channels", "medium", true, approvedServiceInputSchema),
+  tool("channels.contract", "Channels reviewed contract", "Return the reviewed Channels service contract, current source inventory, and read/send path partitions.", "channels"),
+  tool("channels.search", "Search channels module", "Search inside modules/channels only without executing code or modifying files.", "channels", "safe", false, searchSchema),
+  tool("channels.read", "Read channels module file", "Read a small text/code file from modules/channels only. Credential-style files and path escapes are blocked.", "channels", "safe", false, safeReadSchema),
+  tool("channels.inbox", "Channels inbox", "Read inbox data through the configured channels module service using reviewed read-only paths.", "channels", "safe", false, serviceInputSchema),
+  tool("channels.send", "Channels send", "Send outbound messages through the configured channels module service. Approval is required and only reviewed send paths are allowed.", "channels", "medium", true, approvedServiceInputSchema),
 
   tool("voice.inventory", "Voice inventory", "Inspect voice module source and probe configured voice service routes.", "voice"),
   tool("voice.session", "Voice session", "Create or proxy a realtime voice session through the configured voice module service.", "voice", "medium", false, serviceInputSchema),
@@ -329,6 +333,18 @@ export async function runGravityTool(payload: CoreToolRunInput) {
     }
 
     if (selectedTool.name === "channels.inventory") return { ok: true, status: 200, tool: selectedTool, data: await getChannelsInventory() }
+    if (selectedTool.name === "channels.contract") {
+      const result = await getChannelsReviewedContract()
+      return { ok: result.ok, status: result.status, tool: selectedTool, data: result }
+    }
+    if (selectedTool.name === "channels.search") {
+      const result = await searchChannelsModule(input)
+      return { ok: result.ok, status: result.status, tool: selectedTool, data: result }
+    }
+    if (selectedTool.name === "channels.read") {
+      const result = await readChannelsModuleFile(input)
+      return { ok: result.ok, status: result.status, tool: selectedTool, data: result }
+    }
     if (selectedTool.name === "channels.inbox") {
       const result = await readChannelsInbox(input)
       return { ok: result.ok, status: result.status, tool: selectedTool, data: result }
