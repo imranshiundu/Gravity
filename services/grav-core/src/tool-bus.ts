@@ -13,6 +13,7 @@ import {
   readCodingModuleFile,
   searchCodingModules,
 } from "./coding-modules.js"
+import { listCoreCapabilities, resolveCoreCapabilities } from "./core-capabilities.js"
 import {
   getCoreModuleInventory,
   getDefenseModuleInventory,
@@ -22,7 +23,7 @@ import {
   searchCoreModule,
   searchDefenseModule,
 } from "./core-defense-modules.js"
-import { listCoreWorkflows, runCoreWorkflow } from "./core-workflows.js"
+import { coreWorkflowDefinitions, listCoreWorkflows, runCoreWorkflow } from "./core-workflows.js"
 import { getGatewayReviewedContract, readGatewayModuleFile, searchGatewayModule } from "./gateway-module.js"
 import { searchMempalaceMemories } from "./memory.js"
 import { getUnifiedModuleInventory, readUnifiedModuleFile, searchUnifiedModules } from "./module-bindings.js"
@@ -66,6 +67,16 @@ function tool(
 const safeReadSchema = { type: "object", properties: { file: { type: "string" } }, required: ["file"] }
 const inventorySchema = { type: "object", properties: { includeFiles: { type: "boolean" }, includeRoutes: { type: "boolean" } } }
 const searchSchema = { type: "object", properties: { query: { type: "string" }, limit: { type: "number" } }, required: ["query"] }
+const capabilityResolveSchema = {
+  type: "object",
+  properties: {
+    intent: { type: "string" },
+    query: { type: "string" },
+    safeOnly: { type: "boolean" },
+    includeWorkflows: { type: "boolean" },
+    maxResults: { type: "number" },
+  },
+}
 const workflowRunSchema = {
   type: "object",
   properties: {
@@ -121,6 +132,13 @@ const openHandsRunSchema = {
   },
 }
 
+function capabilityGraphInput() {
+  return {
+    tools: gravityCoreTools,
+    workflows: coreWorkflowDefinitions,
+  }
+}
+
 export const gravityCoreTools: GravityTool[] = [
   tool("core.status", "Core status", "Return Gravity Core status, module registry, provider registry, and route map.", "core"),
   tool("core.modules.list", "List modules", "List Gravity modules and their exposed capabilities.", "core"),
@@ -128,6 +146,8 @@ export const gravityCoreTools: GravityTool[] = [
     type: "object",
     properties: { limit: { type: "number" } },
   }),
+  tool("core.capabilities.list", "List Core capabilities", "Return the Gravity capability graph: modules, tools, workflows, and workflow-to-tool edges.", "core", "safe", false),
+  tool("core.capabilities.resolve", "Resolve Core capabilities", "Resolve a user/system intent into matching Gravity tools and workflows without executing them. Default mode excludes medium/dangerous actions from selected results.", "core", "safe", false, capabilityResolveSchema),
   tool("core.workflow.list", "List Core workflows", "List internal Core workflows that coordinate Gravity tools safely through the tool bus.", "core", "safe", false),
   tool("core.workflow.run", "Run Core workflow", "Run an internal Core workflow through the Gravity tool bus. Built-in safe workflows only use allowlisted read/probe tools unless approval is explicitly required.", "core", "safe", false, workflowRunSchema),
   tool("core.module.inventory", "Core module inventory", "Inspect the real modules/core source tree for manifests, routes, contracts, configs, docs, and CLI/tooling signals.", "core-module", "safe", false, inventorySchema),
@@ -272,6 +292,14 @@ export async function runGravityTool(payload: CoreToolRunInput) {
     if (selectedTool.name === "core.status") return { ok: true, status: 200, tool: selectedTool, data: getGravCoreStatus("standalone") }
     if (selectedTool.name === "core.modules.list") return { ok: true, status: 200, tool: selectedTool, data: gravCoreModules }
     if (selectedTool.name === "core.audit.read") return { ok: true, status: 200, tool: selectedTool, data: await readAuditEvents(normalizeLimit(input.limit)) }
+    if (selectedTool.name === "core.capabilities.list") {
+      const result = listCoreCapabilities(capabilityGraphInput())
+      return { ok: result.ok, status: result.status, tool: selectedTool, data: result }
+    }
+    if (selectedTool.name === "core.capabilities.resolve") {
+      const result = resolveCoreCapabilities(input, capabilityGraphInput())
+      return { ok: result.ok, status: result.status, tool: selectedTool, data: result, error: result.ok ? undefined : result.error }
+    }
     if (selectedTool.name === "core.workflow.list") {
       const result = listCoreWorkflows()
       return { ok: result.ok, status: result.status, tool: selectedTool, data: result }
