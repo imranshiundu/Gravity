@@ -18,7 +18,7 @@ export const gravCoreModules: GravityModule[] = [
     id: "core-bindings",
     name: "Universal Module Bindings",
     description: "Core-owned binding layer that inventories all known modules before routing, proxying, importing, or executing anything.",
-    sourcePath: "services/grav-core/src/module-bindings.ts, services/grav-core/src/core-defense-modules.ts, services/grav-core/src/adapters",
+    sourcePath: "services/grav-core/src/module-bindings.ts, services/grav-core/src/core-defense-modules.ts, services/grav-core/src/gateway-module.ts, services/grav-core/src/adapters",
     connectionState: "connected",
     capabilities: [
       { id: "modules.inventory", title: "Inventory all modules", description: "Inspect every known module source path for manifests, route files, route hints, CLI entrypoints, tool files, config, docs, service envs, and dangerous actions.", status: "connected" },
@@ -101,12 +101,15 @@ export const gravCoreModules: GravityModule[] = [
     id: "gateway",
     name: "Gateway",
     description: "Gateway and traffic-control module contract.",
-    sourcePath: "modules/gateway, services/grav-core/src/adapters/gateway-adapter.ts",
+    sourcePath: "modules/gateway, services/grav-core/src/gateway-module.ts, services/grav-core/src/adapters/gateway-adapter.ts",
     connectionState: "registered",
     capabilities: [
       { id: "gateway.inventory", title: "Gateway inventory", description: "Inspect gateway module source and probe configured gateway service routes.", status: "connected" },
-      { id: "gateway.status", title: "Gateway status", description: "Read configured gateway service status.", status: "registered" },
-      { id: "gateway.proxy", title: "Gateway proxy", description: "Proxy configured gateway calls after operator approval.", status: "registered" },
+      { id: "gateway.contract", title: "Gateway reviewed contract", description: "Return the reviewed gateway contract, source inventory, env status, and currently allowed proxy path prefixes.", status: "connected" },
+      { id: "gateway.search", title: "Search gateway module", description: "Search modules/gateway only without executing module code.", status: "connected" },
+      { id: "gateway.read", title: "Read gateway module file", description: "Read small text/code files from modules/gateway only with path and credential-file guards.", status: "connected" },
+      { id: "gateway.status", title: "Gateway status", description: "Read configured gateway service status through reviewed /status path when GRAVITY_GATEWAY_BASE_URL is configured.", status: "registered" },
+      { id: "gateway.proxy", title: "Gateway proxy", description: "Proxy configured gateway calls after operator approval. Allowed prefixes are limited to /health, /status, /routes, and /proxy until a wider route contract is verified.", status: "registered" },
     ],
   },
   {
